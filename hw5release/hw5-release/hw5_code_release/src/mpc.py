@@ -64,13 +64,10 @@ class MPC:
         """
         mu = self.mu #np.zeros([self.plan_horizon, self.action_dim]).reshape(-1)
         sigma = self.sigma #0.5 * np.identity(self.plan_horizon * self.action_dim)
-        "------work from here"
-        #print('----', mu.shape, mu.squeeze().shape)
 
         for _ in range(self.max_iters):
             # We are sampling entire trajectory at once. Hence we request for pop_size number of trajectories
             action_seqs_raw = np.random.multivariate_normal(mu, sigma, (self.pop_size))
-            #print('actions raw', action_seqs_raw.shape)
             # the shape of action_seqs will be (self.pop_size (200), T * action_dim (5*8))
             # so we reshape this into (200, 5, 8)
             action_seqs = action_seqs_raw.reshape(self.pop_size, self.plan_horizon, self.action_dim)
@@ -85,12 +82,8 @@ class MPC:
 
             positions = np.argsort(cost_per_trajectory)
             sorted_action_sequences = action_seqs_raw[positions, :] 
-            #print('321',sorted_action_sequences.shape)
-            #top_elite = sorted_action_sequences[-self.num_elites:, :]
             top_elite = sorted_action_sequences[0:self.num_elites, :]
-            #print('31231;', top_elite.shape)
             mu, sigma = self.update_actions_mu_sigma(top_elite)
-            #print('updated mu', mu.shape)
         return mu.reshape(self.plan_horizon, self.action_dim)
 
 
@@ -99,8 +92,6 @@ class MPC:
         """
         mu = self.mu #np.zeros([self.plan_horizon, self.action_dim]).reshape(-1)
         sigma = self.sigma #0.5 * np.identity(self.plan_horizon * self.action_dim)
-        "------work from here"
-        #print('----', mu.shape, mu.squeeze().shape)
 
         for _ in range(self.max_iters):
             # We are sampling entire trajectory at once. Hence we request for pop_size number of trajectories
@@ -120,31 +111,20 @@ class MPC:
 
             positions = np.argsort(cost_per_trajectory)
             sorted_action_sequences = action_seqs_raw[positions, :] 
-            #print('321',sorted_action_sequences.shape)
-            #top_elite = sorted_action_sequences[-self.num_elites:, :]
             best_action_sequence = sorted_action_sequences[0, :]
-            #print('31231;', top_elite.shape)
-            #print('updated mu', mu.shape)
         return best_action_sequence.reshape(self.plan_horizon, self.action_dim)
 
     def update_actions_mu_sigma(self, elite_actions):
         """This function updates the mean and the std
         """
-        #print(elite_actions.shape)
         return np.mean(elite_actions, axis=0), np.cov(np.transpose(elite_actions))
 
 
     def get_trajectory_gt(self, state, actions):
         """This function returns a full trajectory of states based on the GT model
         """
-        #i = 0
         states = []
         states.append(state)
-        #while not done:
-        #    action = actions[i]
-        #    i +=1
-        #    next_state, reward, done, _ = self.env.step(action)
-        #    states.append(next_state)
 
         for action in actions:
             next_state = self.predict_next_state_gt(state, action)
@@ -179,7 +159,6 @@ class MPC:
 
     def predict_next_state_gt(self, state, action):
         """ Given a list of state action pairs, use the ground truth dynamics to predict the next state"""
-        # TODO: write your code here (DONE)
         return self.env.get_nxt_state(state, action)
 
     def train(self, obs_trajs, acs_trajs, rews_trajs, epochs=5):
@@ -195,10 +174,8 @@ class MPC:
         raise NotImplementedError
 
     def reset(self):
-        # TODO: write your code here (Done)
         self.mu = np.zeros([1, self.plan_horizon*self.action_dim]).squeeze()
         self.sigma = 0.5 * np.identity(self.plan_horizon * self.action_dim)
-        #raise NotImplementedError
 
     def act(self, state, t):
         """
@@ -208,17 +185,14 @@ class MPC:
           state: current state
           t: current timestep
         """
-        # TODO: write your code here
         # regular CEM and no MPC
         self.goal = state[-2:]
         if not self.use_mpc:
             if t % self.plan_horizon ==0:
                 self.actions = self.opt(state)
-                #print(t, self.actions.shape, 'actions ---- in act')
 
             if t >= self.plan_horizon:
                 t = t%self.plan_horizon
-            #print(self.actions.shape, '--->>>>')
             return self.actions[t]
 
         else:
@@ -230,4 +204,3 @@ class MPC:
             self.mu = np.concatenate( (actions[1:, :], np.zeros([1, self.action_dim])), axis = 0).reshape(-1)
             return action
 
-    # TODO: write any helper functions that you need
