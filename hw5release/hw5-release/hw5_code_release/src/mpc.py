@@ -51,11 +51,13 @@ class MPC:
         self.num_elites = num_elites
         self.mu = np.zeros([1, self.plan_horizon*self.action_dim]).squeeze()
         self.sigma = 0.5 * np.identity(self.plan_horizon * self.action_dim)
-        #self.opt = self.cem_optimizer
-        self.opt = self.random_optimizer
+        if use_random_optimizer:
+            self.opt = self.random_optimizer
+        else:
+            self.opt = self.cem_optimizer
         self.actions = []
         self.goal = []
-
+        self.transitions = []
 
     def cem_optimizer(self, start_state):
         """This functions performs the CEM rollout and returns the mu.
@@ -207,14 +209,25 @@ class MPC:
           t: current timestep
         """
         # TODO: write your code here
+        # regular CEM and no MPC
         self.goal = state[-2:]
-        if t % self.plan_horizon ==0:
-            self.actions = self.opt(state)
-            #print(t, self.actions.shape, 'actions ---- in act')
+        if not self.use_mpc:
+            if t % self.plan_horizon ==0:
+                self.actions = self.opt(state)
+                #print(t, self.actions.shape, 'actions ---- in act')
 
-        if t >= self.plan_horizon:
-            t = t%self.plan_horizon
-        #print(self.actions.shape, '--->>>>')
-        return self.actions[t]
+            if t >= self.plan_horizon:
+                t = t%self.plan_horizon
+            #print(self.actions.shape, '--->>>>')
+            return self.actions[t]
+
+        else:
+            # Use MPC
+            actions = self.opt(state) 
+            action = actions[0, :]
+            next_state = self.predict_next_state_gt(state, action)
+            self.transitions.append([state, action, next_state])
+            self.mu = np.concatenate( (actions[1:, :], np.zeros([1, self.action_dim])), axis = 0).reshape(-1)
+            return action
 
     # TODO: write any helper functions that you need
