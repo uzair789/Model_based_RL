@@ -51,7 +51,8 @@ class MPC:
         self.num_elites = num_elites
         self.mu = np.zeros([1, self.plan_horizon*self.action_dim]).squeeze()
         self.sigma = 0.5 * np.identity(self.plan_horizon * self.action_dim)
-        self.opt = self.cem_optimizer
+        #self.opt = self.cem_optimizer
+        self.opt = self.random_optimizer
         self.actions = []
         self.goal = []
 
@@ -91,6 +92,38 @@ class MPC:
         return mu.reshape(self.plan_horizon, self.action_dim)
 
 
+    def random_optimizer(self, start_state):
+        """This functions performs the random action sequence and returns the action trajectory.
+        """
+        mu = self.mu #np.zeros([self.plan_horizon, self.action_dim]).reshape(-1)
+        sigma = self.sigma #0.5 * np.identity(self.plan_horizon * self.action_dim)
+        "------work from here"
+        #print('----', mu.shape, mu.squeeze().shape)
+
+        for _ in range(self.max_iters):
+            # We are sampling entire trajectory at once. Hence we request for pop_size number of trajectories
+            action_seqs_raw = np.random.multivariate_normal(mu, sigma, (self.pop_size))
+            #print('actions raw', action_seqs_raw.shape)
+            # the shape of action_seqs will be (self.pop_size (200), T * action_dim (5*8))
+            # so we reshape this into (200, 5, 8)
+            action_seqs = action_seqs_raw.reshape(self.pop_size, self.plan_horizon, self.action_dim)
+            # THis reshape might be expensive. If compute is slow, remove this and select the actions by inexing in steps of 8
+
+            cost_per_trajectory = []
+            for m in range(self.pop_size):
+                # states will be 1 more than actions tau = (s1,a1,s2,a2,...sT+1)
+                states  = self.get_trajectory_gt(start_state, action_seqs[m])  	
+                cost_per_state  = [self.obs_cost_fn(state) for state in states ]
+                cost_per_trajectory.append( np.sum(cost_per_state)) 
+
+            positions = np.argsort(cost_per_trajectory)
+            sorted_action_sequences = action_seqs_raw[positions, :] 
+            #print('321',sorted_action_sequences.shape)
+            #top_elite = sorted_action_sequences[-self.num_elites:, :]
+            best_action_sequence = sorted_action_sequences[0, :]
+            #print('31231;', top_elite.shape)
+            #print('updated mu', mu.shape)
+        return best_action_sequence.reshape(self.plan_horizon, self.action_dim)
 
     def update_actions_mu_sigma(self, elite_actions):
         """This function updates the mean and the std
