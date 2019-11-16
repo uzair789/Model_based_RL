@@ -127,7 +127,7 @@ class MPC:
         states.append(state)
 
         for action in actions:
-            next_state = self.predict_next_state_gt(state, action)
+            next_state = self.predict_next_state(state, action)
             state = next_state
             states.append(state)
 
@@ -170,8 +170,10 @@ class MPC:
           rews_trajs: rewards (NOTE: this may not be used)
           epochs: number of epochs to train for
         """
+        
         # TODO: write your code here
         raise NotImplementedError
+        
 
     def reset(self):
         self.mu = np.zeros([1, self.plan_horizon*self.action_dim]).squeeze()
@@ -193,14 +195,18 @@ class MPC:
 
             if t >= self.plan_horizon:
                 t = t%self.plan_horizon
-            return self.actions[t]
+
+            action = self.actions[t]
+            #next_state = self.predict_next_state(state, action)
+            #self.transitions.append([state, action, next_state])
+            #return action
 
         else:
             # Use MPC
             actions = self.opt(state) 
             action = actions[0, :]
-            next_state = self.predict_next_state_gt(state, action)
-            self.transitions.append([state, action, next_state])
             self.mu = np.concatenate( (actions[1:, :], np.zeros([1, self.action_dim])), axis = 0).reshape(-1)
-            return action
+        next_state = self.predict_next_state(state, action)
+        self.transitions.append([state, action, next_state])
+        return action
 
