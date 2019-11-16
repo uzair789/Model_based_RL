@@ -171,8 +171,6 @@ class MPC:
           epochs: number of epochs to train for
         """
         
-        # TODO: write your code here
-        raise NotImplementedError
         
 
     def reset(self):
