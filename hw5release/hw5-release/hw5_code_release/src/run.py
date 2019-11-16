@@ -4,7 +4,7 @@ import gym
 import envs
 import os.path as osp
 
-from agent import Agent
+from agent import Agent, RandomPolicy
 from mpc import MPC
 from model import PENN
 
@@ -66,6 +66,7 @@ class ExperimentModelDynamics:
                               use_random_optimizer=False)
         self.random_policy = MPC(self.env, PLAN_HORIZON, self.model, POPSIZE, NUM_ELITES, MAX_ITERS, **mpc_params,
                                  use_random_optimizer=True)
+        self.random_policy_no_mpc = RandomPolicy(len(self.env.action_space.sample()))
 
     def test(self, num_episodes, optimizer='cem'):
         samples = []
@@ -85,7 +86,7 @@ class ExperimentModelDynamics:
 
         samples = []
         for i in range(num_episodes):
-            samples.append(self.agent.sample(self.task_horizon, self.cem_policy))
+            samples.append(self.agent.sample(self.task_horizon, self.random_policy_no_mpc))
 
         self.cem_policy.train(
             [sample["obs"] for sample in samples],
