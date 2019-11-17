@@ -3,17 +3,18 @@ import numpy as np
 import gym
 import envs
 import os.path as osp
+import time
 
 from agent import Agent, RandomPolicy
 from mpc import MPC
 from model import PENN
 
 # Training params
-TASK_HORIZON = 10#40
+TASK_HORIZON = 40
 PLAN_HORIZON = 5
 
 # CEM params
-POPSIZE = 10#200
+POPSIZE = 200
 NUM_ELITES = 20
 MAX_ITERS = 5
 
@@ -71,7 +72,7 @@ class ExperimentModelDynamics:
     def test(self, num_episodes, optimizer='cem'):
         samples = []
         for j in range(num_episodes):
-            print('Test episode {}'.format(j))
+            print('Test episode {} -- policy = {}'.format(j, optimizer))
             samples.append(
                 self.agent.sample(
                     self.task_horizon, self.cem_policy if optimizer == 'cem' else self.random_policy
@@ -126,6 +127,7 @@ class ExperimentModelDynamics:
 
 
 def test_cem_gt_dynamics(num_episode=10):
+    """
     f1 = open('cem_gt_dynamics.txt','w')
     print('CEM PushingEnv without MPC')
     mpc_params = {'use_mpc': False, 'num_particles': 1}
@@ -159,7 +161,7 @@ def test_cem_gt_dynamics(num_episode=10):
     line = ('CEM PushingEnv Noisy with MPC: avg_reward: {}, avg_success: {}\n'.format(avg_reward, avg_success))
     print(line)
     f1.write(line)
-
+    """
     print('RANDOM PushingEnv without MPC')
     mpc_params = {'use_mpc': False, 'num_particles': 1}
     exp = ExperimentGTDynamics(env_name='Pushing2D-v1', mpc_params=mpc_params)
@@ -198,14 +200,30 @@ def test_cem_gt_dynamics(num_episode=10):
 
 def train_single_dynamics(num_test_episode=50):
     num_nets = 1
-    num_episodes = 10#1000
+    num_episodes = 1000
     num_epochs = 100
+
+
+    f1 = open('train_single_dynamics_dummy.txt','w')
+    """
+    # CEM WITH MPC
     mpc_params = {'use_mpc': True, 'num_particles': 6}
     exp = ExperimentModelDynamics(env_name='Pushing2D-v1', num_nets=num_nets, mpc_params=mpc_params)
     exp.model_warmup(num_episodes=num_episodes, num_epochs=num_epochs)
-
     avg_reward, avg_success = exp.test(num_test_episode, optimizer='cem')
-
+    line = ('CEM PushingEnv with MPC: avg_reward: {}, avg_success: {}\n'.format(avg_reward, avg_success))
+    f1.write(line)
+    """
+    start = time.time()
+    # Random WITH No MPC
+    mpc_params = {'use_mpc':True, 'num_particles': 6}
+    exp = ExperimentModelDynamics(env_name='Pushing2D-v1', num_nets=num_nets, mpc_params=mpc_params)
+    exp.model_warmup(num_episodes=num_episodes, num_epochs=num_epochs)
+    avg_reward, avg_success = exp.test(num_test_episode, optimizer='random')
+    line = ('RANDOM PushingEnv without MPC: avg_reward: {}, avg_success: {}\n'.format(avg_reward, avg_success))
+    print(line)
+    f1.write(line)
+    f1.write('Time taken: '+str(np.round(time.time() - start, 3))+'\n')
 
 def train_pets():
     num_nets = 2
@@ -222,6 +240,6 @@ def train_pets():
 
 
 if __name__ == "__main__":
-    #test_cem_gt_dynamics(50)
+   # test_cem_gt_dynamics(50)
     train_single_dynamics(50)
     #train_pets()

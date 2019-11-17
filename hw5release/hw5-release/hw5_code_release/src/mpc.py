@@ -51,10 +51,13 @@ class MPC:
         self.num_elites = num_elites
         self.mu = np.zeros([1, self.plan_horizon*self.action_dim]).squeeze()
         self.sigma = 0.5 * np.identity(self.plan_horizon * self.action_dim)
+        print(use_random_optimizer)
         if use_random_optimizer:
             self.opt = self.random_optimizer
+            print('Using Random Optimizer!')
         else:
             self.opt = self.cem_optimizer
+            print('Using CEM Optimizer!')
         self.actions = []
         self.goal = []
         self.transitions = []
@@ -75,7 +78,7 @@ class MPC:
 
             cost_per_trajectory = []
             for m in range(self.pop_size):
-                print('in cem-----------', i, m)
+                #print('in cem-----------', i, m)
                 # states will be 1 more than actions tau = (s1,a1,s2,a2,...sT+1)
                 states  = self.get_trajectory_gt(start_state, action_seqs[m])  	
                 cost_per_state  = [self.obs_cost_fn(state) for state in states ]
@@ -94,7 +97,7 @@ class MPC:
         mu = self.mu #np.zeros([self.plan_horizon, self.action_dim]).reshape(-1)
         sigma = self.sigma #0.5 * np.identity(self.plan_horizon * self.action_dim)
 
-        for _ in range(self.max_iters):
+        for i in range(self.max_iters):
             # We are sampling entire trajectory at once. Hence we request for pop_size number of trajectories
             action_seqs_raw = np.random.multivariate_normal(mu, sigma, (self.pop_size))
             #print('actions raw', action_seqs_raw.shape)
@@ -105,14 +108,14 @@ class MPC:
 
             cost_per_trajectory = []
             for m in range(self.pop_size):
+                #print('generating traj with random', m, '/', self.pop_size, 'max_iters = ',i,'/', self.max_iters)
                 # states will be 1 more than actions tau = (s1,a1,s2,a2,...sT+1)
                 states  = self.get_trajectory_gt(start_state, action_seqs[m])  	
                 cost_per_state  = [self.obs_cost_fn(state) for state in states ]
                 cost_per_trajectory.append( np.sum(cost_per_state)) 
 
-            positions = np.argsort(cost_per_trajectory)
-            sorted_action_sequences = action_seqs_raw[positions, :] 
-            best_action_sequence = sorted_action_sequences[0, :]
+            position = np.argmin(cost_per_trajectory)
+            best_action_sequence = action_seqs_raw[position, :] 
         return best_action_sequence.reshape(self.plan_horizon, self.action_dim)
 
     def update_actions_mu_sigma(self, elite_actions):
@@ -141,8 +144,6 @@ class MPC:
         W_GOAL = 2
         W_DIFF = 5
 
-
-
         pusher_x, pusher_y = state[0], state[1]
         box_x, box_y = state[2], state[3]
         goal_x, goal_y = self.goal[0], self.goal[1]
@@ -159,9 +160,10 @@ class MPC:
         """ Given a list of state action pairs, use the learned model to predict the next state"""
         # TODO: write your code here
         state = state[0:self.state_dim]
-        input_data = np.hstack((state.reshape([1,-1]), action.reshape([1,-1])))
+        input_data = (np.concatenate([state, action]))
+        #input_data = np.hstack((state.reshape([1,-1]), action.reshape([1,-1])))
         #input_data = np.array(input_data, ndmin=2)
-        return self.model.forward(input_data)
+        return self.model.forward(np.array(input_data, ndmin=2))
 
     def predict_next_state_gt(self, state, action):
         """ Given a list of state action pairs, use the ground truth dynamics to predict the next state"""
@@ -213,11 +215,11 @@ class MPC:
           t: current timestep
         """
         # regular CEM and no MPC
-        print('in act')
+        #print('in act')
         self.goal = state[8:]
-        print('goal---->', self.goal)
+        #print('goal---->', self.goal)
         if not self.use_mpc:
-            print('no mpc')
+            #print('no mpc')
             if t % self.plan_horizon ==0:
                 self.actions = self.opt(state)
 
@@ -225,19 +227,19 @@ class MPC:
                 t = t%self.plan_horizon
 
             action = self.actions[t]
-            print('action selected')
+            #print('action selected')
             #next_state = self.predict_next_state(state, action)
             #self.transitions.append([state, action, next_state])
             #return action
 
         else:
             # Use MPC
-            print('yes mpc')
+            #print('yes mpc')
             actions = self.opt(state) 
-            print('actions found', actions)
+            #print('actions found', actions)
             action = actions[0, :]
             
-            print('action selected with MPC')
+            #print('action selected with MPC')
             self.mu = np.concatenate( (actions[1:, :], np.zeros([1, self.action_dim])), axis = 0).reshape(-1)
         next_state = self.predict_next_state(state, action)
         self.transitions.append([state[0:self.state_dim], action, next_state])

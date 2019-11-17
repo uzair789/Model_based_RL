@@ -19,11 +19,11 @@ class Agent:
         policy.reset()
         for t in range(horizon):
             # print('time step: {}/{}'.format(t, horizon))
-            print('time step in Agent', t)
+            #print('time step in Agent', t)
             actions.append(policy.act(states[t], t))
-            print('policy acted')
+            #print('policy acted')
             state, reward, done, info = self.env.step(actions[t])
-            print('step taken')
+            #print('step taken')
             states.append(state)
             reward_sum += reward
             rewards.append(reward)
