@@ -36,6 +36,8 @@ class PENN:
 
         # TODO write your code here
         # Create and initialize your model
+        model = self.create_network()
+        self.model = model
 
     def get_output(self, output):
         """
@@ -58,8 +60,38 @@ class PENN:
         h2 = Dense(HIDDEN2_UNITS, activation='relu', kernel_regularizer=l2(0.0001))(h1)
         h3 = Dense(HIDDEN3_UNITS, activation='relu', kernel_regularizer=l2(0.0001))(h2)
         O = Dense(2 * self.state_dim, activation='linear', kernel_regularizer=l2(0.0001))(h3)
-        model = Model(input=I, output=O)
+        model = Model(inputs=I, outputs=O)
         return model
+
+    def gauss_loss(self, means, log_vars, next_states):
+        """ THis function computes the loss."""
+        diff = tf.subtract(means, next_states)
+        print('----diff---->', diff)
+        cov_mat = tf.matrix_diag(log_vars)
+        print('----cov mat---->', cov_mat)
+        log_det = tf.log( tf.linalg.det(cov_mat) )
+        print('----log_det---->', log_det)
+
+        #do 1/vars
+        inverse_vars = tf.divide(1,log_vars)
+        loss = tf.reduce_sum(diff * inverse_vars * diff, axis=1) + log_det
+
+
+
+        return tf.reduce_mean(loss)
+
+    def get_train_data(self, inputs, targets, batch_size):
+        """ return a random batch of data."""
+        indices = np.random.randint(0, inputs.shape[0], size=(batch_size,))
+        return inputs[indices, :], targets[indices, :]
+
+    def forward(self, input_data):
+        output = self.model.predict(input_data)
+        mean, log_var = self.get_output(output)
+        return mean.squeeze()
+
+    
+
 
     def train(self, inputs, targets, batch_size=128, epochs=5):
         """
@@ -67,7 +99,25 @@ class PENN:
           inputs: state and action inputs.  Assumes that inputs are standardized.
           targets: resulting states
         """
-        # TODO: write your code here
-        raise NotImplementedError
+
+
+
+        I = tf.placeholder(dtype=tf.float32, shape=[None, inputs.shape[1]])
+        y = tf.placeholder(dtype=tf.float32, shape=[None, targets.shape[1]])
+        model_output = self.model(I)
+        mean, log_var = self.get_output (model_output)
+        loss = self.gauss_loss(mean, log_var, y)
+        train_op = tf.train.AdamOptimizer(learning_rate=0.001).minimize(loss)
+        self.sess.run(tf.global_variables_initializer())
+
+        iters_per_epoch = np.floor(inputs.shape[1]/batch_size)
+
+        for epoch in range(epochs):
+            for i in range(iters_per_epoch):
+                batch_data, batch_targets = self.get_train_data(inputs, targets, batch_size)
+                _, loss_value = self.sess.run([train_op, loss], feed_dict={I:batch_data, y:batch_targets})
+                print(e, i, loss_value)
+            # shuffle the data at the end of each epoch
+            #inputs, targets = shuffle_data(inputs, targets) 
 
     # TODO: Write any helper functions that you need

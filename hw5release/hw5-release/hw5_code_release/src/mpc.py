@@ -65,7 +65,7 @@ class MPC:
         mu = self.mu #np.zeros([self.plan_horizon, self.action_dim]).reshape(-1)
         sigma = self.sigma #0.5 * np.identity(self.plan_horizon * self.action_dim)
 
-        for _ in range(self.max_iters):
+        for i in range(self.max_iters):
             # We are sampling entire trajectory at once. Hence we request for pop_size number of trajectories
             action_seqs_raw = np.random.multivariate_normal(mu, sigma, (self.pop_size))
             # the shape of action_seqs will be (self.pop_size (200), T * action_dim (5*8))
@@ -75,6 +75,7 @@ class MPC:
 
             cost_per_trajectory = []
             for m in range(self.pop_size):
+                print('in cem-----------', i, m)
                 # states will be 1 more than actions tau = (s1,a1,s2,a2,...sT+1)
                 states  = self.get_trajectory_gt(start_state, action_seqs[m])  	
                 cost_per_state  = [self.obs_cost_fn(state) for state in states ]
@@ -140,6 +141,8 @@ class MPC:
         W_GOAL = 2
         W_DIFF = 5
 
+
+
         pusher_x, pusher_y = state[0], state[1]
         box_x, box_y = state[2], state[3]
         goal_x, goal_y = self.goal[0], self.goal[1]
@@ -152,10 +155,13 @@ class MPC:
         # the -0.4 is to adjust for the radius of the box and pusher
         return W_PUSHER * np.max(d_box - 0.4, 0) + W_GOAL * d_goal + W_DIFF * diff_coord
 
-    def predict_next_state_model(self, states, actions):
+    def predict_next_state_model(self, state, action):
         """ Given a list of state action pairs, use the learned model to predict the next state"""
         # TODO: write your code here
-        raise NotImplementedError
+        state = state[0:self.state_dim]
+        input_data = np.hstack((state.reshape([1,-1]), action.reshape([1,-1])))
+        #input_data = np.array(input_data, ndmin=2)
+        return self.model.forward(input_data)
 
     def predict_next_state_gt(self, state, action):
         """ Given a list of state action pairs, use the ground truth dynamics to predict the next state"""
@@ -170,8 +176,29 @@ class MPC:
           rews_trajs: rewards (NOTE: this may not be used)
           epochs: number of epochs to train for
         """
-        
-        
+        #Adding random data to the training data
+        for i in range(len(obs_trajs)):
+            states = obs_trajs[i]
+            actions = acs_trajs[i]
+            rewards = acs_trajs[i]
+            for j in range(len(actions)):
+                self.transitions.append([states[j, 0:8], actions[j], states[j+1, 0:8]])
+        # trains the model
+
+        train_input, train_targets = self.get_train_data()
+        self.model.train(train_input, train_targets) 
+
+    def get_train_data(self):
+        """THis function arranges the data into the input training data format
+        """
+        states = [trans[0] for trans in self.transitions]
+        actions = [trans[1] for trans in self.transitions]
+        next_states = [trans[2] for trans in self.transitions]
+        states, actions, next_states = np.array(states), np.array(actions), np.array(next_states)
+
+        input_data = np.concatenate((states, actions), axis=1)
+        print(states.shape, actions.shape, input_data.shape, next_states.shape)
+        return input_data, next_states 
 
     def reset(self):
         self.mu = np.zeros([1, self.plan_horizon*self.action_dim]).squeeze()
@@ -186,8 +213,11 @@ class MPC:
           t: current timestep
         """
         # regular CEM and no MPC
-        self.goal = state[-2:]
+        print('in act')
+        self.goal = state[8:]
+        print('goal---->', self.goal)
         if not self.use_mpc:
+            print('no mpc')
             if t % self.plan_horizon ==0:
                 self.actions = self.opt(state)
 
@@ -195,16 +225,21 @@ class MPC:
                 t = t%self.plan_horizon
 
             action = self.actions[t]
+            print('action selected')
             #next_state = self.predict_next_state(state, action)
             #self.transitions.append([state, action, next_state])
             #return action
 
         else:
             # Use MPC
+            print('yes mpc')
             actions = self.opt(state) 
+            print('actions found', actions)
             action = actions[0, :]
+            
+            print('action selected with MPC')
             self.mu = np.concatenate( (actions[1:, :], np.zeros([1, self.action_dim])), axis = 0).reshape(-1)
         next_state = self.predict_next_state(state, action)
-        self.transitions.append([state, action, next_state])
+        self.transitions.append([state[0:self.state_dim], action, next_state])
         return action
 
