@@ -204,18 +204,21 @@ def train_single_dynamics(num_test_episode=50):
     num_epochs = 100
 
 
-    f1 = open('train_single_dynamics_dummy.txt','w')
-    """
+    f1 = open('train_single_dynamics.txt','w')
+   
     # CEM WITH MPC
+    start = time.time()
     mpc_params = {'use_mpc': True, 'num_particles': 6}
     exp = ExperimentModelDynamics(env_name='Pushing2D-v1', num_nets=num_nets, mpc_params=mpc_params)
     exp.model_warmup(num_episodes=num_episodes, num_epochs=num_epochs)
     avg_reward, avg_success = exp.test(num_test_episode, optimizer='cem')
     line = ('CEM PushingEnv with MPC: avg_reward: {}, avg_success: {}\n'.format(avg_reward, avg_success))
+    print(line)
     f1.write(line)
-    """
-    start = time.time()
+    f1.write('Time taken: '+str(np.round(time.time() - start, 3))+'\n')
+   
     # Random WITH No MPC
+    start = time.time()
     mpc_params = {'use_mpc':True, 'num_particles': 6}
     exp = ExperimentModelDynamics(env_name='Pushing2D-v1', num_nets=num_nets, mpc_params=mpc_params)
     exp.model_warmup(num_episodes=num_episodes, num_epochs=num_epochs)
