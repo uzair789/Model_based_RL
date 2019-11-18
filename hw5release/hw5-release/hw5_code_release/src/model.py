@@ -55,7 +55,7 @@ class PENN:
 
 
         #Working with the ensemble
-        self.lr = 0.001
+        self.lr = learning_rate
         self.models = []
         self.input_placeholders = []
         self.target_placeholders = []

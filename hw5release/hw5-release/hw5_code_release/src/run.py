@@ -13,12 +13,12 @@ from mpc import MPC
 from model import PENN
 
 # Training params
-TASK_HORIZON = 5 #40
+TASK_HORIZON = 40
 PLAN_HORIZON = 5
 
 # CEM params
-POPSIZE = 5# 200
-NUM_ELITES = 2 # 20
+POPSIZE = 200
+NUM_ELITES = 20
 MAX_ITERS = 5
 
 # Model params
@@ -276,10 +276,10 @@ def train_single_dynamics(num_test_episode=50):
     #f1.close()
 def train_pets():
     num_nets = 2
-    num_epochs = 2# 500
-    evaluation_interval = 1 #50
+    num_epochs = 500
+    evaluation_interval = 50
     num_episodes_per_epoch = 1
-    test_episodes = 2 #20
+    test_episodes = 20
 
     mpc_params = {'use_mpc': True, 'num_particles': 6}
     exp = ExperimentModelDynamics(env_name='Pushing2D-v1', num_nets=num_nets, mpc_params=mpc_params)
@@ -308,6 +308,5 @@ if __name__ == "__main__":
         train_pets()
     """
     #test_cem_gt_dynamics(50)
-    #train_single_dynamics(50)
-    train_single_dynamics(2)
+    train_single_dynamics(50)
     train_pets()
