@@ -158,11 +158,8 @@ class MPC:
 
     def predict_next_state_model(self, state, action):
         """ Given a list of state action pairs, use the learned model to predict the next state"""
-        # TODO: write your code here
         state = state[0:self.state_dim]
         input_data = (np.concatenate([state, action]))
-        #input_data = np.hstack((state.reshape([1,-1]), action.reshape([1,-1])))
-        #input_data = np.array(input_data, ndmin=2)
         return self.model.forward(np.array(input_data, ndmin=2))
 
     def predict_next_state_gt(self, state, action):

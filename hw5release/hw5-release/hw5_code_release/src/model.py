@@ -36,6 +36,7 @@ class PENN:
 
         # TODO write your code here
         # Create and initialize your model
+        """
         model = self.create_network()
         self.model = model
 
@@ -48,7 +49,35 @@ class PENN:
         self.train_op = tf.train.AdamOptimizer(learning_rate=0.00001).minimize(self.loss)
 
         self.sess.run(tf.global_variables_initializer())
+        """
 
+        #Working with the ensemble
+        self.models = []
+        self.input_placeholders = []
+        self.target_placeholders = []
+        self.means = [] 
+        self.losses = []
+        self.rmses = []
+        self.train_ops  =[]
+        for i in range(num_nets):
+            model = self.create_network()
+            I = tf.placeholder(dtype=tf.float32, shape=[None, state_dim+action_dim])
+            y = tf.placeholder(dtype=tf.float32, shape=[None, state_dim])
+            model_output = model(I)
+            mean, log_var = self.get_output(model_output)
+            loss = self.gauss_loss(mean, log_var, y)
+            rmse = self.get_rmse(mean, y)
+            train_op = tf.train.AdamOptimizer(learning_rate=0.00001).minimize(loss)
+            self.models.append(model)
+            self.input_placeholders.append(I)
+            self.target_placeholders.append(y)
+            self.means.append(mean)
+            self.losses.append(loss)
+            self.rmses.append(rmse)
+            self.train_ops.append(train_op)
+            
+
+        self.sess.run(tf.global_variables_initializer())
 
     def get_output(self, output):
         """
@@ -119,18 +148,16 @@ class PENN:
           inputs: state and action inputs.  Assumes that inputs are standardized.
           targets: resulting states
         """
-
-
         f = open('loss_log.txt','w')
-        #self.sess.graph.finalize()
-
-        print(inputs.shape[0], batch_size)
         iters_per_epoch = int(np.floor(inputs.shape[0]/batch_size))
-        print(iters_per_epoch, '-----MMMM')
         for e in range(epochs):
             for i in range(iters_per_epoch):
-                batch_data, batch_targets = self.get_train_data(inputs, targets, batch_size)
-                _, loss_value, rmse_value = self.sess.run([self.train_op, self.loss, self.rmse], feed_dict={self.I:batch_data, self.y:batch_targets})
+                feed_dict = {}
+                for n in range(len(self.models)):
+                    batch_data, batch_targets = self.get_train_data(inputs, targets, batch_size)
+                    feed_dict[self.input_placeholders[n]] = batch_data
+                    feed_dict[self.target_placeholders[n]] = batch_targets
+                _, loss_value, rmse_value = self.sess.run([self.train_ops, self.losses, self.rmses], feed_dict=feed_dict)
                 line = ('Epoch: '+str(e)+' | '+ str(i)+'/'+str(iters_per_epoch)+'---- loss= '+ str(loss_value)+ ' | '+'RMSE= '+str (rmse_value))
                 f.write(line+'\n')
                 print(line)
