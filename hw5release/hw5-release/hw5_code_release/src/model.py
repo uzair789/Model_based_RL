@@ -77,18 +77,13 @@ class PENN:
     def gauss_loss(self, means, log_vars, next_states):
         """ THis function computes the loss."""
         diff = tf.subtract(means, next_states)
-        print('----diff---->', diff)
-        #cov_mat = tf.matrix_diag(log_vars)
-        #print('----cov mat---->', cov_mat)
-        #log_det = tf.log( tf.linalg.det(cov_mat) )
-        log_det = tf.log( tf.reduce_prod(log_vars, axis=1 ))
-        print('----log_det---->', log_det)
-
+        log_det = tf.reduce_sum(log_vars, axis=1)
+        
         #do 1/vars
-        inverse_vars = tf.divide(1,log_vars)
+        vars_ = tf.exp(log_vars)
+        inverse_vars = tf.divide(1, vars_)
+        
         loss = tf.reduce_sum(diff * inverse_vars * diff, axis=1) + log_det
-
-
         return tf.reduce_mean(loss)
 
     def get_rmse(self, means, next_states):
