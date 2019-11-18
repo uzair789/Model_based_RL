@@ -46,6 +46,7 @@ class MPC:
         # Initialize your planner with the relevant arguments.
         # Write different optimizers for cem and random actions respectively
         #raise NotImplementedError
+        self.num_particles = num_particles
         self.max_iters = max_iters
         self.pop_size = pop_size
         self.num_elites = num_elites
@@ -80,9 +81,12 @@ class MPC:
             for m in range(self.pop_size):
                 #print('in cem-----------', i, m)
                 # states will be 1 more than actions tau = (s1,a1,s2,a2,...sT+1)
-                states  = self.get_trajectory_gt(start_state, action_seqs[m])  	
-                cost_per_state  = [self.obs_cost_fn(state) for state in states ]
-                cost_per_trajectory.append( np.sum(cost_per_state)) 
+                cost_per_p = []
+                for p in range(self.num_particles):
+                    states  = self.get_trajectory_gt(start_state, action_seqs[m])  	
+                    cost_per_state  = [self.obs_cost_fn(state) for state in states ]
+                    cost_per_p.append( np.sum(cost_per_state))
+                cost_per_trajectory.append( np.mean(cost_per_p)) 
 
             positions = np.argsort(cost_per_trajectory)
             sorted_action_sequences = action_seqs_raw[positions, :] 
@@ -110,9 +114,12 @@ class MPC:
             for m in range(self.pop_size):
                 #print('generating traj with random', m, '/', self.pop_size, 'max_iters = ',i,'/', self.max_iters)
                 # states will be 1 more than actions tau = (s1,a1,s2,a2,...sT+1)
-                states  = self.get_trajectory_gt(start_state, action_seqs[m])  	
-                cost_per_state  = [self.obs_cost_fn(state) for state in states ]
-                cost_per_trajectory.append( np.sum(cost_per_state)) 
+                cost_per_p = []
+                for p in range(self.num_particles):
+                    states  = self.get_trajectory_gt(start_state, action_seqs[m])  	
+                    cost_per_state  = [self.obs_cost_fn(state) for state in states ]
+                    cost_per_p.append( np.sum(cost_per_state))
+                cost_per_trajectory.append( np.mean(cost_per_p)) 
 
             position = np.argmin(cost_per_trajectory)
             best_action_sequence = action_seqs_raw[position, :] 

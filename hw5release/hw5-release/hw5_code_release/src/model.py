@@ -52,6 +52,7 @@ class PENN:
         """
 
         #Working with the ensemble
+        self.lr = 0.001
         self.models = []
         self.input_placeholders = []
         self.target_placeholders = []
@@ -67,7 +68,7 @@ class PENN:
             mean, log_var = self.get_output(model_output)
             loss = self.gauss_loss(mean, log_var, y)
             rmse = self.get_rmse(mean, y)
-            train_op = tf.train.AdamOptimizer(learning_rate=0.00001).minimize(loss)
+            train_op = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(loss)
             self.models.append(model)
             self.input_placeholders.append(I)
             self.target_placeholders.append(y)
@@ -76,7 +77,6 @@ class PENN:
             self.rmses.append(rmse)
             self.train_ops.append(train_op)
             
-
         self.sess.run(tf.global_variables_initializer())
 
     def get_output(self, output):
@@ -128,8 +128,11 @@ class PENN:
     def forward(self, input_data):
         #output = self.model.predict(input_data)
         #mean, log_var = self.get_output(output)
- 
-        mean_value = self.sess.run(self.mean, feed_dict={self.I:input_data})
+        feed_dict = {}
+        for n in range(len(self.models)):
+            feed_dict[self.input_placeholders[n]] = input_data 
+        mean_values = self.sess.run(self.means, feed_dict=feed_dict)
+        ind = np.random.randint(0, len(mean_values))
         """
         I = tf.placeholder(dtype=tf.float32, shape=[None, input_data.shape[1]])
         model_output = self.model(I)
@@ -137,7 +140,7 @@ class PENN:
         mean = op[0:8]
         #tf.reset_default_graph()
         """
-        return mean_value.squeeze()
+        return mean_values[ind].squeeze()
 
     
 
@@ -148,7 +151,6 @@ class PENN:
           inputs: state and action inputs.  Assumes that inputs are standardized.
           targets: resulting states
         """
-        f = open('loss_log.txt','w')
         iters_per_epoch = int(np.floor(inputs.shape[0]/batch_size))
         for e in range(epochs):
             for i in range(iters_per_epoch):
@@ -159,7 +161,6 @@ class PENN:
                     feed_dict[self.target_placeholders[n]] = batch_targets
                 _, loss_value, rmse_value = self.sess.run([self.train_ops, self.losses, self.rmses], feed_dict=feed_dict)
                 line = ('Epoch: '+str(e)+' | '+ str(i)+'/'+str(iters_per_epoch)+'---- loss= '+ str(loss_value)+ ' | '+'RMSE= '+str (rmse_value))
-                f.write(line+'\n')
                 print(line)
             # shuffle the data at the end of each epoch
             #inputs, targets = shuffle_data(inputs, targets) 

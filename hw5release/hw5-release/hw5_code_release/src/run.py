@@ -4,6 +4,9 @@ import gym
 import envs
 import os.path as osp
 import time
+import argparse
+
+
 
 from agent import Agent, RandomPolicy
 from mpc import MPC
@@ -25,6 +28,8 @@ LR = 1e-3
 STATE_DIM = 8
 
 LOG_DIR = './data'
+
+
 
 
 class ExperimentGTDynamics(object):
@@ -69,6 +74,8 @@ class ExperimentModelDynamics:
                                  use_random_optimizer=True)
         self.random_policy_no_mpc = RandomPolicy(len(self.env.action_space.sample()))
 
+        #self.f = open('pets_20_test.txt','w')
+
     def test(self, num_episodes, optimizer='cem'):
         samples = []
         for j in range(num_episodes):
@@ -98,10 +105,11 @@ class ExperimentModelDynamics:
 
     def train(self, num_train_epochs, num_episodes_per_epoch, evaluation_interval):
         """ Jointly training the model and the policy """
-
         for i in range(num_train_epochs):
             print("####################################################################")
             print("Starting training epoch %d." % (i + 1))
+            #line = ("Starting training epoch %d." % (i + 1))
+            #self.f.write(line+'\n')
 
             samples = []
             for j in range(num_episodes_per_epoch):
@@ -111,6 +119,8 @@ class ExperimentModelDynamics:
                     )
                 )
             print("Rewards obtained:", [sample["reward_sum"] for sample in samples])
+            #line = ("Rewards obtained:" + str( [sample["reward_sum"] for sample in samples]))
+            #self.f.write(line+'\n')
 
             self.cem_policy.train(
                 [sample["obs"] for sample in samples],
@@ -120,14 +130,19 @@ class ExperimentModelDynamics:
             )
 
             if (i + 1) % evaluation_interval == 0:
-                avg_return, avg_success = self.test(50, optimizer='cem')
+                avg_return, avg_success = self.test(20, optimizer='cem')
                 print('Test success CEM + MPC:', avg_success)
-                avg_return, avg_success = self.test(50, optimizer='random')
-                print('Test success Random + MPC:', avg_success)
+                #line = ('Test success CEM + MPC:' + str(avg_success))
+                #self.f.write(line+'\n')
 
+
+                avg_return, avg_success = self.test(20, optimizer='random')
+                print('Test success Random + MPC:', avg_success)
+                #line = ('Test success Random + MPC:'+str( avg_success))
+                #self.f.write(line+'\n')
 
 def test_cem_gt_dynamics(num_episode=10):
-    """
+    
     f1 = open('cem_gt_dynamics.txt','w')
     print('CEM PushingEnv without MPC')
     mpc_params = {'use_mpc': False, 'num_particles': 1}
@@ -161,7 +176,7 @@ def test_cem_gt_dynamics(num_episode=10):
     line = ('CEM PushingEnv Noisy with MPC: avg_reward: {}, avg_success: {}\n'.format(avg_reward, avg_success))
     print(line)
     f1.write(line)
-    """
+    
     print('RANDOM PushingEnv without MPC')
     mpc_params = {'use_mpc': False, 'num_particles': 1}
     exp = ExperimentGTDynamics(env_name='Pushing2D-v1', mpc_params=mpc_params)
@@ -204,7 +219,7 @@ def train_single_dynamics(num_test_episode=50):
     num_epochs = 100
 
 
-    f1 = open('train_single_dynamics.txt','w')
+    #f1 = open('train_single_dynamics.txt','w')
    
     # CEM WITH MPC
     start = time.time()
@@ -214,20 +229,20 @@ def train_single_dynamics(num_test_episode=50):
     avg_reward, avg_success = exp.test(num_test_episode, optimizer='cem')
     line = ('CEM PushingEnv with MPC: avg_reward: {}, avg_success: {}\n'.format(avg_reward, avg_success))
     print(line)
-    f1.write(line)
-    f1.write('Time taken: '+str(np.round(time.time() - start, 3))+'\n')
+    #f1.write(line)
+    #f1.write('Time taken: '+str(np.round(time.time() - start, 3))+'\n')
    
-    # Random WITH No MPC
+    # Random WITH  MPC
     start = time.time()
     mpc_params = {'use_mpc':True, 'num_particles': 6}
     exp = ExperimentModelDynamics(env_name='Pushing2D-v1', num_nets=num_nets, mpc_params=mpc_params)
     exp.model_warmup(num_episodes=num_episodes, num_epochs=num_epochs)
     avg_reward, avg_success = exp.test(num_test_episode, optimizer='random')
-    line = ('RANDOM PushingEnv without MPC: avg_reward: {}, avg_success: {}\n'.format(avg_reward, avg_success))
+    line = ('RANDOM PushingEnv with MPC: avg_reward: {}, avg_success: {}\n'.format(avg_reward, avg_success))
     print(line)
-    f1.write(line)
-    f1.write('Time taken: '+str(np.round(time.time() - start, 3))+'\n')
-
+    #f1.write(line)
+    #f1.write('Time taken: '+str(np.round(time.time() - start, 3))+'\n')
+    #f1.close()
 def train_pets():
     num_nets = 2
     num_epochs = 500
@@ -243,6 +258,20 @@ def train_pets():
 
 
 if __name__ == "__main__":
-   # test_cem_gt_dynamics(50)
-    train_single_dynamics(50)
-    #train_pets()
+    """
+    parser = argparse.ArgumentParser(description='HW5')
+  
+    parser.add_argument('--train', help='gt_model or single_model or pets')
+    args = parser.parse_args()
+
+    #test_cem_gt_dynamics(50)
+    if args.train == 'gt_model':
+        test_cem_gt_dynamics(50)
+    elif args.train == 'single_model':
+        train_single_dynamics(50)
+    elif args.train == 'pets':
+        train_pets()
+    """
+    #test_cem_gt_dynamics(50)
+    #train_single_dynamics(50)
+    train_pets()
