@@ -13,12 +13,12 @@ from mpc import MPC
 from model import PENN
 
 # Training params
-TASK_HORIZON = 40
+TASK_HORIZON = 5 #40
 PLAN_HORIZON = 5
 
 # CEM params
-POPSIZE = 200
-NUM_ELITES = 20
+POPSIZE = 5# 200
+NUM_ELITES = 2 # 20
 MAX_ITERS = 5
 
 # Model params
@@ -58,7 +58,7 @@ class ExperimentGTDynamics(object):
         avg_return = np.mean([sample["reward_sum"] for sample in samples])
         avg_success = np.mean([sample["rewards"][-1] == 0 for sample in samples])
         return avg_return, avg_success
-
+PATH = './plots'
 
 class ExperimentModelDynamics:
     def __init__(self, env_name='Pushing2D-v1', num_nets=1, mpc_params=None):
@@ -75,6 +75,35 @@ class ExperimentModelDynamics:
         self.random_policy_no_mpc = RandomPolicy(len(self.env.action_space.sample()))
 
         #self.f = open('pets_20_test.txt','w')
+
+
+    def plot_graph(self, data, title, xlabel, ylabel):
+        plt.figure(figsize=(12,5))
+        plt.title(title)
+        plt.plot(data)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.savefig(osp.join(PATH, title+'.png'))
+
+
+    def plot_loss_rmse(self, suffix):
+        loss, rmse = self.model.get_loss_rmse()
+        #print('------in plotting---')
+        #print(loss, loss.shape, rmse, rmse.shape)
+        for i in range(loss.shape[1]):
+             data = loss[:, i]
+             title = suffix+'ModelLoss_'+str(i)
+             xlabel = 'epochs'
+             ylabel = 'Loss'
+             self.plot_graph(data, title, xlabel, ylabel)
+
+        for i in range(rmse.shape[1]):
+             data = rmse[:, i]
+             title = suffix+'ModelRMSE_'+str(i)
+             xlabel = 'epochs'
+             ylabel = 'RMSE'
+             self.plot_graph(data, title, xlabel, ylabel)
+
 
     def test(self, num_episodes, optimizer='cem'):
         samples = []
@@ -103,7 +132,7 @@ class ExperimentModelDynamics:
             epochs=num_epochs
         )
 
-    def train(self, num_train_epochs, num_episodes_per_epoch, evaluation_interval):
+    def train(self, num_train_epochs, num_episodes_per_epoch, evaluation_interval, test_episodes):
         """ Jointly training the model and the policy """
         for i in range(num_train_epochs):
             print("####################################################################")
@@ -130,13 +159,13 @@ class ExperimentModelDynamics:
             )
 
             if (i + 1) % evaluation_interval == 0:
-                avg_return, avg_success = self.test(20, optimizer='cem')
+                avg_return, avg_success = self.test(test_episodes, optimizer='cem')
                 print('Test success CEM + MPC:', avg_success)
                 #line = ('Test success CEM + MPC:' + str(avg_success))
                 #self.f.write(line+'\n')
 
 
-                avg_return, avg_success = self.test(20, optimizer='random')
+                avg_return, avg_success = self.test(test_episodes, optimizer='random')
                 print('Test success Random + MPC:', avg_success)
                 #line = ('Test success Random + MPC:'+str( avg_success))
                 #self.f.write(line+'\n')
@@ -226,6 +255,7 @@ def train_single_dynamics(num_test_episode=50):
     mpc_params = {'use_mpc': True, 'num_particles': 6}
     exp = ExperimentModelDynamics(env_name='Pushing2D-v1', num_nets=num_nets, mpc_params=mpc_params)
     exp.model_warmup(num_episodes=num_episodes, num_epochs=num_epochs)
+    exp.plot_loss_rmse('single_cem_mpc_')
     avg_reward, avg_success = exp.test(num_test_episode, optimizer='cem')
     line = ('CEM PushingEnv with MPC: avg_reward: {}, avg_success: {}\n'.format(avg_reward, avg_success))
     print(line)
@@ -237,6 +267,7 @@ def train_single_dynamics(num_test_episode=50):
     mpc_params = {'use_mpc':True, 'num_particles': 6}
     exp = ExperimentModelDynamics(env_name='Pushing2D-v1', num_nets=num_nets, mpc_params=mpc_params)
     exp.model_warmup(num_episodes=num_episodes, num_epochs=num_epochs)
+    exp.plot_loss_rmse('single_random_mpc_')
     avg_reward, avg_success = exp.test(num_test_episode, optimizer='random')
     line = ('RANDOM PushingEnv with MPC: avg_reward: {}, avg_success: {}\n'.format(avg_reward, avg_success))
     print(line)
@@ -245,16 +276,20 @@ def train_single_dynamics(num_test_episode=50):
     #f1.close()
 def train_pets():
     num_nets = 2
-    num_epochs = 500
-    evaluation_interval = 50
+    num_epochs = 2# 500
+    evaluation_interval = 1 #50
     num_episodes_per_epoch = 1
+    test_episodes = 2 #20
 
     mpc_params = {'use_mpc': True, 'num_particles': 6}
     exp = ExperimentModelDynamics(env_name='Pushing2D-v1', num_nets=num_nets, mpc_params=mpc_params)
     exp.model_warmup(num_episodes=100, num_epochs=10)
     exp.train(num_train_epochs=num_epochs,
               num_episodes_per_epoch=num_episodes_per_epoch,
-              evaluation_interval=evaluation_interval)
+              evaluation_interval=evaluation_interval,
+              test_episodes=test_episodes)
+
+    exp.plot_loss_rmse('pets_')
 
 
 if __name__ == "__main__":
@@ -274,4 +309,5 @@ if __name__ == "__main__":
     """
     #test_cem_gt_dynamics(50)
     #train_single_dynamics(50)
+    train_single_dynamics(2)
     train_pets()

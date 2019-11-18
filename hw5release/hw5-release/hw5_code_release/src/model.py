@@ -50,6 +50,9 @@ class PENN:
 
         self.sess.run(tf.global_variables_initializer())
         """
+        self.loss_collector = []
+        self.rmse_collector = []
+
 
         #Working with the ensemble
         self.lr = 0.001
@@ -78,6 +81,10 @@ class PENN:
             self.train_ops.append(train_op)
             
         self.sess.run(tf.global_variables_initializer())
+
+    def get_loss_rmse(self):
+        return np.array(self.loss_collector, ndmin=2), np.array(self.rmse_collector, ndmin=2)
+
 
     def get_output(self, output):
         """
@@ -160,6 +167,8 @@ class PENN:
                     feed_dict[self.input_placeholders[n]] = batch_data
                     feed_dict[self.target_placeholders[n]] = batch_targets
                 _, loss_value, rmse_value = self.sess.run([self.train_ops, self.losses, self.rmses], feed_dict=feed_dict)
+                self.loss_collector.append(loss_value)
+                self.rmse_collector.append(rmse_value)
                 line = ('Epoch: '+str(e)+' | '+ str(i)+'/'+str(iters_per_epoch)+'---- loss= '+ str(loss_value)+ ' | '+'RMSE= '+str (rmse_value))
                 print(line)
             # shuffle the data at the end of each epoch
