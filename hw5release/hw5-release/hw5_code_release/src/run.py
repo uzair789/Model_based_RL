@@ -5,7 +5,7 @@ import envs
 import os.path as osp
 import time
 import argparse
-
+import time
 
 
 from agent import Agent, RandomPolicy
@@ -74,7 +74,6 @@ class ExperimentModelDynamics:
                                  use_random_optimizer=True)
         self.random_policy_no_mpc = RandomPolicy(len(self.env.action_space.sample()))
 
-        #self.f = open('pets_20_test.txt','w')
 
 
     def plot_graph(self, data, title, xlabel, ylabel):
@@ -134,11 +133,13 @@ class ExperimentModelDynamics:
 
     def train(self, num_train_epochs, num_episodes_per_epoch, evaluation_interval, test_episodes):
         """ Jointly training the model and the policy """
+        f = open('pets_20_test.txt','w')
         for i in range(num_train_epochs):
+            start1 = time.time() 
             print("####################################################################")
             print("Starting training epoch %d." % (i + 1))
-            #line = ("Starting training epoch %d." % (i + 1))
-            #self.f.write(line+'\n')
+            line = ("Starting training epoch %d." % (i + 1))
+            f.write(line+'\n')
 
             samples = []
             for j in range(num_episodes_per_epoch):
@@ -148,8 +149,8 @@ class ExperimentModelDynamics:
                     )
                 )
             print("Rewards obtained:", [sample["reward_sum"] for sample in samples])
-            #line = ("Rewards obtained:" + str( [sample["reward_sum"] for sample in samples]))
-            #self.f.write(line+'\n')
+            line = ("Rewards obtained:" + str( [sample["reward_sum"] for sample in samples]))
+            f.write(line+'\n')
 
             self.cem_policy.train(
                 [sample["obs"] for sample in samples],
@@ -157,18 +158,24 @@ class ExperimentModelDynamics:
                 [sample["rewards"] for sample in samples],
                 epochs=5
             )
-
+            time_for_train = np.round(time.time() - start1,3)
+            f.write('Time taken for train part of the epoch: '+str(time_for_train)+'\n')
+            print('Time taken for train part of the epoch: '+str(time_for_train))
             if (i + 1) % evaluation_interval == 0:
+                start = time.time()
                 avg_return, avg_success = self.test(test_episodes, optimizer='cem')
-                print('Test success CEM + MPC:', avg_success)
-                #line = ('Test success CEM + MPC:' + str(avg_success))
-                #self.f.write(line+'\n')
+                time_taken_cem = np.round(time.time() - start, 3) 
+                print('Test success CEM + MPC:', avg_success, 'Time taken: ',time_taken_cem)
+                line = ('Test success CEM + MPC:' + str(avg_success)+' Time taken: '+str(time_taken_cem) )
+                f.write(line+'\n')
 
-
+                start = time.time()
                 avg_return, avg_success = self.test(test_episodes, optimizer='random')
-                print('Test success Random + MPC:', avg_success)
-                #line = ('Test success Random + MPC:'+str( avg_success))
-                #self.f.write(line+'\n')
+                time_taken_random = time.time() - start
+                print('Test success Random + MPC:', avg_success, 'Time taken: ', time_taken_random)
+                line = ('Test success Random + MPC:'+str( avg_success)+' TIme taken: '+str(time_taken_random))
+                f.write(line+'\n')
+        f.close()
 
 def test_cem_gt_dynamics(num_episode=10):
     
@@ -248,7 +255,7 @@ def train_single_dynamics(num_test_episode=50):
     num_epochs = 100
 
 
-    #f1 = open('train_single_dynamics.txt','w')
+    f1 = open('train_single_dynamics.txt','w')
    
     # CEM WITH MPC
     start = time.time()
@@ -259,8 +266,8 @@ def train_single_dynamics(num_test_episode=50):
     avg_reward, avg_success = exp.test(num_test_episode, optimizer='cem')
     line = ('CEM PushingEnv with MPC: avg_reward: {}, avg_success: {}\n'.format(avg_reward, avg_success))
     print(line)
-    #f1.write(line)
-    #f1.write('Time taken: '+str(np.round(time.time() - start, 3))+'\n')
+    f1.write(line)
+    f1.write('Time taken: '+str(np.round(time.time() - start, 3))+'\n')
    
     # Random WITH  MPC
     start = time.time()
@@ -271,9 +278,10 @@ def train_single_dynamics(num_test_episode=50):
     avg_reward, avg_success = exp.test(num_test_episode, optimizer='random')
     line = ('RANDOM PushingEnv with MPC: avg_reward: {}, avg_success: {}\n'.format(avg_reward, avg_success))
     print(line)
-    #f1.write(line)
-    #f1.write('Time taken: '+str(np.round(time.time() - start, 3))+'\n')
-    #f1.close()
+    f1.write(line)
+    f1.write('Time taken: '+str(np.round(time.time() - start, 3))+'\n')
+    f1.close()
+
 def train_pets():
     num_nets = 2
     num_epochs = 500
@@ -308,5 +316,5 @@ if __name__ == "__main__":
         train_pets()
     """
     #test_cem_gt_dynamics(50)
-    train_single_dynamics(50)
+    #train_single_dynamics(50)
     train_pets()
