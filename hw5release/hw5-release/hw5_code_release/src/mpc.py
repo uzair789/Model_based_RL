@@ -62,6 +62,7 @@ class MPC:
         self.actions = []
         self.goal = []
         self.transitions = []
+  
 
     def get_costs_per_trajectory(self, input_state, action_seqs ):
         """ THis function computes the costs for all the tarjectories in one go
@@ -69,42 +70,26 @@ class MPC:
             input_state (10)
             action_seqs (200, 5, 2)
         """
-        #print('num particles ', self.num_particles)
         state = np.tile(input_state[0:self.state_dim], (self.pop_size*self.num_particles, 1))
         actions_p_times = np.tile(action_seqs, (self.num_particles, 1, 1))
         # THis will create a state column of size [200, 10] since a state is 10 dimensional
         #print('state and action shapes:' ,state.shape, actions_p_times.shape)
         costs_per_time_step = np.zeros([state.shape[0], self.plan_horizon])
+        indxs = np.random.choice([0, self.num_nets-1], size=(self.pop_size*self.num_particles, self.plan_horizon) , replace=True)
         for t in range(self.plan_horizon):
-            #print('*** time step ', t)
             actions_m = actions_p_times[:, t, :]
-            #input_data = np.concatenate([state, actions_m], axis=1)
-            #print(input_data.shape)
             next_state = self.predict_next_state_model(state, actions_m)
-            costs = self.obs_cost_fn_(next_state)
-            costs2 = [self.obs_cost_fn(state) for state in next_state]
-            print('error in costs', np.linalg.norm(costs2-costs), t)
+            costs = np.apply_along_axis(self.obs_cost_fn, 1, next_state)
             state = next_state
-            #print(costs)
-            #print(costs.shape)        
-            #print('next states', next_state.shape)        
             costs_per_time_step[:, t] = costs
 
 
         # sum across time steps to compute the total cost of each trajectory
         costs_per_trajectory = np.sum(costs_per_time_step, axis=1)
-        #print(costs_per_trajectory)
-        #print(costs_per_trajectory.shape, '----000')
 
         #averaging the costs across num particles
         costs_across_p = costs_per_trajectory.reshape(self.num_particles, -1)
-        #print(costs_across_p)
-        #print(costs_across_p.shape)
         costs_avgd_across_p = np.mean(costs_across_p, axis=0)
-        #print(costs_avgd_across_p) 
-        #print(costs_avgd_across_p.shape)
-        #exit()
-
         return costs_avgd_across_p
 
     def cem_optimizer(self, start_state):
@@ -214,35 +199,6 @@ class MPC:
         diff_coord = np.abs(box_x / box_y - goal_x / goal_y)
         # the -0.4 is to adjust for the radius of the box and pusher
         return W_PUSHER * np.max(d_box - 0.4, 0) + W_GOAL * d_goal + W_DIFF * diff_coord
-    def obs_cost_fn_(self, state):
-        """ Cost function of the current state """
-        # Weights for different terms
-        W_PUSHER = 1
-        W_GOAL = 2
-        W_DIFF = 5
-
-        pusher_x, pusher_y = state[:, 0], state[:, 1]
-        box_x, box_y = state[:, 2], state[:, 3]
-        goal_x, goal_y = self.goal[0], self.goal[1]
-
-        pusher_box = np.array([box_x - pusher_x, box_y - pusher_y])
-        box_goal = np.array([goal_x - box_x, goal_y - box_y])
-        #d_box = np.sqrt(np.dot(pusher_box, pusher_box))
-        #d_goal = np.sqrt(np.dot(box_goal, box_goal))
-
-        #print(pusher_box.shape, box_goal.shape, '---<>')
-
-        d_box = np.sqrt(np.sum(pusher_box * pusher_box, axis=0))
-        d_goal = np.sqrt(np.sum(box_goal * box_goal, axis=0))
-        diff_coord = np.abs(box_x / box_y - goal_x / goal_y)
-        # the -0.4 is to adjust for the radius of the box and pusher
-        temp = d_box-0.4
-        temp = np.expand_dims(temp, axis=1)
-        temp2 = np.concatenate([temp, np.zeros([state.shape[0], 1])], axis=1 )
-        #print(temp2)
-        #print(d_box.shape, d_goal.shape, diff_coord.shape, temp.shape, temp2.shape)
-        #return W_PUSHER * np.amax(temp2, axis=1) + W_GOAL * d_goal + W_DIFF * diff_coord
-        return W_PUSHER * temp + W_GOAL * d_goal + W_DIFF * diff_coord
 
     def predict_next_state_model(self, state, action):
         """ Given a list of state action pairs, use the learned model to predict the next state"""
@@ -271,9 +227,11 @@ class MPC:
             actions = acs_trajs[i]
             rewards = acs_trajs[i]
             for j in range(len(actions)):
+                #next_state = self.predict_next_state_gt(states[j], actions[j])
+                #self.transitions.append([states[j, 0:8], actions[j], next_state[0:8]])
                 self.transitions.append([states[j, 0:8], actions[j], states[j+1, 0:8]])
         # trains the model
-
+        
         train_input, train_targets = self.get_train_data()
         self.model.train(train_input, train_targets, batch_size=128, epochs=epochs) 
 
@@ -286,7 +244,8 @@ class MPC:
         states, actions, next_states = np.array(states), np.array(actions), np.array(next_states)
 
         input_data = np.concatenate((states, actions), axis=1)
-        print(states.shape, actions.shape, input_data.shape, next_states.shape)
+        #print(np.array(self.transitions).shape, '------<>>>>---')
+        #print('---->> in mpc get_train_data', input_data.shape, next_states.shape)
         return input_data, next_states 
 
     def reset(self):
@@ -331,6 +290,11 @@ class MPC:
         
         
         next_state = self.predict_next_state(state[0:self.state_dim].reshape(1,-1), action.reshape(1,-1))
+        next_state = np.array(next_state)
+        #print('---in sct', next_state.shape)
+        #if len(next_state.shape) < 2:
+        #    print('len less than 2') 
+        #    exit()
         self.transitions.append([state[0:self.state_dim], action, next_state[0:self.state_dim]])
         return action
 

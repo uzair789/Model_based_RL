@@ -251,11 +251,11 @@ def test_cem_gt_dynamics(num_episode=10):
 
 def train_single_dynamics(num_test_episode=50):
     num_nets = 1
-    num_episodes = 1000
-    num_epochs = 5#100
+    num_episodes = 10000
+    num_epochs = 100
 
 
-    f1 = open('train_single_dynamics_vec.txt','w')
+    f1 = open('train_single_dynamics_vec_r.txt','w')
      
     # CEM WITH MPC
     start = time.time()
@@ -281,7 +281,7 @@ def train_single_dynamics(num_test_episode=50):
     
     f1.write(line)
     f1.write('Time taken: '+str(np.round(time.time() - start, 3))+'\n')
-    """
+    """    
     f1.close()
     
 def train_pets():
@@ -290,10 +290,11 @@ def train_pets():
     evaluation_interval = 50
     num_episodes_per_epoch = 1
     test_episodes = 20
+    warmup_episodes = 100
 
     mpc_params = {'use_mpc': True, 'num_particles': 6}
     exp = ExperimentModelDynamics(env_name='Pushing2D-v1', num_nets=num_nets, mpc_params=mpc_params)
-    exp.model_warmup(num_episodes=100, num_epochs=10)
+    exp.model_warmup(num_episodes=warmup_episodes, num_epochs=10)
     exp.train(num_train_epochs=num_epochs,
               num_episodes_per_epoch=num_episodes_per_epoch,
               evaluation_interval=evaluation_interval,
@@ -318,5 +319,5 @@ if __name__ == "__main__":
         train_pets()
     """
     #test_cem_gt_dynamics(50)
-    train_single_dynamics(50)
-    #train_pets()
+    #train_single_dynamics(50)
+    train_pets()

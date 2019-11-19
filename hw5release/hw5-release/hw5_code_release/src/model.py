@@ -131,42 +131,56 @@ class PENN:
     def get_train_data(self, inputs, targets, batch_size):
         """ return a random batch of data."""
         indices = np.random.randint(0, inputs.shape[0], size=(batch_size,))
-        return inputs[indices, :], targets[indices, :]
+        #print('--batch_size', batch_size, indices.shape, inputs.shape, targets.shape)
+        #print(targets)
+        #print('--- target 0 shape', targets[0], targets[0].shape)
+        #print('type---->>>>>>>',type(inputs), type(targets), targets.size, len(targets))
+
+        t = [] 
+        count_less_than_8 = 0
+        #if len(targets.shape) < 2:
+         
+        for i,x in enumerate(targets):
+                #print('inside, target at ',i, x, x.shape)
+                x = x.reshape(1, -1)
+                if len(x.shape) < 2:
+                    #print('len less than 8')
+                    count_less_than_8 += 1 
+                t.append(x)
+        t = np.array(t, ndmin=2)
+        print(t.shape, 'before squeeze')
+        t = t.squeeze()
+        print(t.shape, 'after squeeze')
+        #print(t)
+        #print('count o fless than 8', count_less_than_8)
+        #print('SHAPE OF T', t.shape, t.size)
+        #print('--batch_size', batch_size, indices.shape, inputs.shape, targets.shape)
+        #targets = targets.reshape(inputs.shape[0], 8)
+        #print('After reshaping', targets.shape)
+        assert inputs.shape[0] == t.shape[0]
+        return inputs[indices, :], t[indices, :]
+
+    def TS1_sampling(self, mean, std):
+        indxs = np.random.choice([0, self.num_nets-1], size=(mean.shape[1]), replace=True)
+        selected_mean = mean[indxs, range(0, mean.shape[1]), :]
+        selected_std = std[indxs, range(0, mean.shape[1]), :]
+        next_state = np.random.normal(selected_mean, selected_std)
+        return next_state
+
 
     def forward(self, input_data):
-        #output = self.model.predict(input_data)
-        #mean, log_var = self.get_output(output)
         feed_dict = {}
         for n in range(len(self.models)):
             feed_dict[self.input_placeholders[n]] = input_data 
         mean_values, log_vars_values = self.sess.run([self.means, self.log_vars], feed_dict=feed_dict)
-        indxs = [np.random.randint(0, self.num_nets) for i in range(input_data.shape[0])]
+        vars_values = np.exp(log_vars_values)
+        sigma_values = np.sqrt(vars_values)
+
         mean_values = np.array(mean_values)
-        log_vars_values = np.array(log_vars_values)
-        #vars_ np.exp()
-        #selected_means = [mean_values[indxs[i], i, :] for i in range(input_data.shape[0])    ]
-        #selected_log_vars = [log_vars_values[indxs[i], i, :] for i in range(input_data.shape[0])]
-        #vars_ = np.exp(selected_log_vars)
-         
-       
-        #selected_means = np.array(selected_means)
+        next_state = self.TS1_sampling(mean_values, sigma_values)
 
- 
-        #print('----eww', selected_means.shape, vars_.shape)         
-        #selected_states = [ np.random.multivariate_normal(selected_means[i], np.diag(vars_[i])) for i in range(input_data.shape[0]) ]                                                  
-        selected_states = [ np.random.multivariate_normal(mean_values[indxs[i], i, :], np.diag( np.exp(log_vars_values[indxs[i], i, :])  )) for i in range(input_data.shape[0]) ]                                                  
 
-        selected_states = np.array(selected_states)
-        #print('input_means', mean_values.shape)
-        #print('selected_means', selected_means.shape)
-        """
-        I = tf.placeholder(dtype=tf.float32, shape=[None, input_data.shape[1]])
-        model_output = self.model(I)
-        op = self.sess.run(model_output, feed_dict={I:input_data})
-        mean = op[0:8]
-        #tf.reset_default_graph()
-        """
-        return selected_states
+        return next_state
 
     
 
@@ -181,15 +195,18 @@ class PENN:
         for e in range(epochs):
             for i in range(iters_per_epoch):
                 feed_dict = {}
+                batch_data, batch_targets = self.get_train_data(inputs, targets, batch_size)
                 for n in range(len(self.models)):
-                    batch_data, batch_targets = self.get_train_data(inputs, targets, batch_size)
+                    print('Epoch: ', e, ' iteration:',i, ' Model: ', n, ' batch_size: ',batch_size)
                     feed_dict[self.input_placeholders[n]] = batch_data
                     feed_dict[self.target_placeholders[n]] = batch_targets
-                _, loss_value, rmse_value = self.sess.run([self.train_ops, self.losses, self.rmses], feed_dict=feed_dict)
-                self.loss_collector.append(loss_value)
-                self.rmse_collector.append(rmse_value)
-                line = ('Epoch: '+str(e)+' | '+ str(i)+'/'+str(iters_per_epoch)+'---- loss= '+ str(loss_value)+ ' | '+'RMSE= '+str (rmse_value))
-                print(line)
+                print(batch_data.shape, batch_targets.shape, '------>>><><><>???')
+                #_, loss_value, rmse_value = self.sess.run([self.train_ops, self.losses, self.rmses], feed_dict=feed_dict)
+                _, _, _ = self.sess.run([self.train_ops, self.losses, self.rmses], feed_dict=feed_dict)
+                #self.loss_collector.append(loss_value)
+                #self.rmse_collector.append(rmse_value)
+                #line = ('Epoch: '+str(e)+' | '+ str(i)+'/'+str(iters_per_epoch)+'---- loss= '+ str(loss_value)+ ' | '+'RMSE= '+str (rmse_value))
+                #print(line)
             # shuffle the data at the end of each epoch
             #inputs, targets = shuffle_data(inputs, targets) 
 
