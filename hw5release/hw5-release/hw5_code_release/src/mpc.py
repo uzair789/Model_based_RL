@@ -64,12 +64,7 @@ class MPC:
         self.transitions = []
 
     def get_costs_per_trajectory(self, input_state, action_seqs ):
-        """ THis function computes the costs for all the tarjectories in one go
 
-            input_state (10)
-            action_seqs (200, 5, 2)
-        """
-        #print('num particles ', self.num_particles)
         state = np.tile(input_state[0:self.state_dim], (self.pop_size*self.num_particles, 1))
         actions_p_times = np.tile(action_seqs, (self.num_particles, 1, 1))
         # THis will create a state column of size [200, 10] since a state is 10 dimensional
@@ -81,9 +76,10 @@ class MPC:
             #input_data = np.concatenate([state, actions_m], axis=1)
             #print(input_data.shape)
             next_state = self.predict_next_state_model(state, actions_m)
-            costs = self.obs_cost_fn_(next_state)
-            costs2 = [self.obs_cost_fn(state) for state in next_state]
-            print('error in costs', np.linalg.norm(costs2-costs), t)
+            #costs = self.obs_cost_fn_(next_state)
+            costs = np.apply_along_axis(self.obs_cost_fn,1,next_state)
+            #costs2 = [self.obs_cost_fn(state) for state in next_state]
+            #print('error in costs', np.linalg.norm(costs2-costs), t)
             state = next_state
             #print(costs)
             #print(costs.shape)        
@@ -213,36 +209,7 @@ class MPC:
         d_goal = np.sqrt(np.dot(box_goal, box_goal))
         diff_coord = np.abs(box_x / box_y - goal_x / goal_y)
         # the -0.4 is to adjust for the radius of the box and pusher
-        return W_PUSHER * np.max(d_box - 0.4, 0) + W_GOAL * d_goal + W_DIFF * diff_coord
-    def obs_cost_fn_(self, state):
-        """ Cost function of the current state """
-        # Weights for different terms
-        W_PUSHER = 1
-        W_GOAL = 2
-        W_DIFF = 5
-
-        pusher_x, pusher_y = state[:, 0], state[:, 1]
-        box_x, box_y = state[:, 2], state[:, 3]
-        goal_x, goal_y = self.goal[0], self.goal[1]
-
-        pusher_box = np.array([box_x - pusher_x, box_y - pusher_y])
-        box_goal = np.array([goal_x - box_x, goal_y - box_y])
-        #d_box = np.sqrt(np.dot(pusher_box, pusher_box))
-        #d_goal = np.sqrt(np.dot(box_goal, box_goal))
-
-        #print(pusher_box.shape, box_goal.shape, '---<>')
-
-        d_box = np.sqrt(np.sum(pusher_box * pusher_box, axis=0))
-        d_goal = np.sqrt(np.sum(box_goal * box_goal, axis=0))
-        diff_coord = np.abs(box_x / box_y - goal_x / goal_y)
-        # the -0.4 is to adjust for the radius of the box and pusher
-        temp = d_box-0.4
-        temp = np.expand_dims(temp, axis=1)
-        temp2 = np.concatenate([temp, np.zeros([state.shape[0], 1])], axis=1 )
-        #print(temp2)
-        #print(d_box.shape, d_goal.shape, diff_coord.shape, temp.shape, temp2.shape)
-        #return W_PUSHER * np.amax(temp2, axis=1) + W_GOAL * d_goal + W_DIFF * diff_coord
-        return W_PUSHER * temp + W_GOAL * d_goal + W_DIFF * diff_coord
+        return W_PUSHER * np.max(d_box - 0.4, 0) + W_GOAL * d_goal + W_DIFF * diff_coord 
 
     def predict_next_state_model(self, state, action):
         """ Given a list of state action pairs, use the learned model to predict the next state"""

@@ -22,7 +22,7 @@ class Agent:
             #print('time step in Agent', t)
             s = time.time() 
             actions.append(policy.act(states[t], t))
-            print('time taken to act: ', np.round(time.time()-s,3), 'sec')
+            #print('time taken to act: ', np.round(time.time()-s,3), 'sec')
             #print('policy acted')
             state, reward, done, info = self.env.step(actions[t])
             #print('step taken')

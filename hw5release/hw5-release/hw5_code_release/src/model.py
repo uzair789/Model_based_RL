@@ -35,20 +35,6 @@ class PENN:
 
         # TODO write your code here
         # Create and initialize your model
-        """
-        model = self.create_network()
-        self.model = model
-
-        self.I = tf.placeholder(dtype=tf.float32, shape=[None, state_dim+action_dim])
-        self.y = tf.placeholder(dtype=tf.float32, shape=[None, state_dim])
-        self.model_output = self.model(self.I)
-        self.mean, self.log_var = self.get_output (self.model_output)
-        self.loss = self.gauss_loss(self.mean, self.log_var,self.y)
-        self.rmse = self.get_rmse(self.mean, self.y)
-        self.train_op = tf.train.AdamOptimizer(learning_rate=0.00001).minimize(self.loss)
-
-        self.sess.run(tf.global_variables_initializer())
-        """
         self.loss_collector = []
         self.rmse_collector = []
 
@@ -131,11 +117,9 @@ class PENN:
     def get_train_data(self, inputs, targets, batch_size):
         """ return a random batch of data."""
         indices = np.random.randint(0, inputs.shape[0], size=(batch_size,))
-        return inputs[indices, :], targets[indices, :]
+        return inputs[indices, :], targets[indices,:]
 
     def forward(self, input_data):
-        #output = self.model.predict(input_data)
-        #mean, log_var = self.get_output(output)
         feed_dict = {}
         for n in range(len(self.models)):
             feed_dict[self.input_placeholders[n]] = input_data 
@@ -143,33 +127,9 @@ class PENN:
         indxs = [np.random.randint(0, self.num_nets) for i in range(input_data.shape[0])]
         mean_values = np.array(mean_values)
         log_vars_values = np.array(log_vars_values)
-        #vars_ np.exp()
-        #selected_means = [mean_values[indxs[i], i, :] for i in range(input_data.shape[0])    ]
-        #selected_log_vars = [log_vars_values[indxs[i], i, :] for i in range(input_data.shape[0])]
-        #vars_ = np.exp(selected_log_vars)
-         
-       
-        #selected_means = np.array(selected_means)
-
- 
-        #print('----eww', selected_means.shape, vars_.shape)         
-        #selected_states = [ np.random.multivariate_normal(selected_means[i], np.diag(vars_[i])) for i in range(input_data.shape[0]) ]                                                  
-        selected_states = [ np.random.multivariate_normal(mean_values[indxs[i], i, :], np.diag( np.exp(log_vars_values[indxs[i], i, :])  )) for i in range(input_data.shape[0]) ]                                                  
-
+        selected_states = [np.random.multivariate_normal(mean_values[indxs[i], i, :], np.diag( np.exp(log_vars_values[indxs[i], i, :])  )) for i in range(input_data.shape[0]) ]                                                  
         selected_states = np.array(selected_states)
-        #print('input_means', mean_values.shape)
-        #print('selected_means', selected_means.shape)
-        """
-        I = tf.placeholder(dtype=tf.float32, shape=[None, input_data.shape[1]])
-        model_output = self.model(I)
-        op = self.sess.run(model_output, feed_dict={I:input_data})
-        mean = op[0:8]
-        #tf.reset_default_graph()
-        """
         return selected_states
-
-    
-
 
     def train(self, inputs, targets, batch_size=128, epochs=1):
         """

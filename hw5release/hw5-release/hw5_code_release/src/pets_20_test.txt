@@ -1,0 +1,2 @@
+Starting training epoch 1.
+Rewards obtained:[-41]

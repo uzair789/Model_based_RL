@@ -29,9 +29,9 @@ STATE_DIM = 8
 
 LOG_DIR = './data'
 
+PATH = './plots'
 
-
-
+ 
 class ExperimentGTDynamics(object):
     def __init__(self, env_name='Pushing2D-v1', mpc_params=None):
         self.env = gym.make(env_name)
@@ -58,7 +58,9 @@ class ExperimentGTDynamics(object):
         avg_return = np.mean([sample["reward_sum"] for sample in samples])
         avg_success = np.mean([sample["rewards"][-1] == 0 for sample in samples])
         return avg_return, avg_success
-PATH = './plots'
+
+
+#len of env action space = 2
 
 class ExperimentModelDynamics:
     def __init__(self, env_name='Pushing2D-v1', num_nets=1, mpc_params=None):
@@ -73,8 +75,6 @@ class ExperimentModelDynamics:
         self.random_policy = MPC(self.env, PLAN_HORIZON, self.model, POPSIZE, NUM_ELITES, MAX_ITERS, **mpc_params,
                                  use_random_optimizer=True)
         self.random_policy_no_mpc = RandomPolicy(len(self.env.action_space.sample()))
-
-
 
     def plot_graph(self, data, title, xlabel, ylabel):
         plt.figure(figsize=(12,5))
@@ -187,7 +187,7 @@ def test_cem_gt_dynamics(num_episode=10):
     line = ('CEM PushingEnv without MPC: avg_reward: {}, avg_success: {}\n'.format(avg_reward, avg_success))
     print(line)
     f1.write(line)
-
+    """
     #
     print('CEM PushingEnv with MPC')
     mpc_params = {'use_mpc': True, 'num_particles': 1}
@@ -246,13 +246,12 @@ def test_cem_gt_dynamics(num_episode=10):
     print(line)
     f1.write(line)
     f1.close()
-
-
+    """
 
 def train_single_dynamics(num_test_episode=50):
     num_nets = 1
     num_episodes = 1000
-    num_epochs = 5#100
+    num_epochs = 100#5#100
 
 
     f1 = open('train_single_dynamics_vec.txt','w')
@@ -303,20 +302,6 @@ def train_pets():
 
 
 if __name__ == "__main__":
-    """
-    parser = argparse.ArgumentParser(description='HW5')
-  
-    parser.add_argument('--train', help='gt_model or single_model or pets')
-    args = parser.parse_args()
-
-    #test_cem_gt_dynamics(50)
-    if args.train == 'gt_model':
-        test_cem_gt_dynamics(50)
-    elif args.train == 'single_model':
-        train_single_dynamics(50)
-    elif args.train == 'pets':
-        train_pets()
-    """
     #test_cem_gt_dynamics(50)
     train_single_dynamics(50)
     #train_pets()
