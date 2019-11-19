@@ -252,36 +252,38 @@ def test_cem_gt_dynamics(num_episode=10):
 def train_single_dynamics(num_test_episode=50):
     num_nets = 1
     num_episodes = 1000
-    num_epochs = 100
+    num_epochs = 5#100
 
 
-    f1 = open('train_single_dynamics.txt','w')
-   
+    f1 = open('train_single_dynamics_vec.txt','w')
+     
     # CEM WITH MPC
     start = time.time()
     mpc_params = {'use_mpc': True, 'num_particles': 6}
     exp = ExperimentModelDynamics(env_name='Pushing2D-v1', num_nets=num_nets, mpc_params=mpc_params)
     exp.model_warmup(num_episodes=num_episodes, num_epochs=num_epochs)
-    exp.plot_loss_rmse('single_cem_mpc_')
+    exp.plot_loss_rmse('single_cem_mpc_vec')
     avg_reward, avg_success = exp.test(num_test_episode, optimizer='cem')
     line = ('CEM PushingEnv with MPC: avg_reward: {}, avg_success: {}\n'.format(avg_reward, avg_success))
     print(line)
     f1.write(line)
     f1.write('Time taken: '+str(np.round(time.time() - start, 3))+'\n')
-   
+    """
     # Random WITH  MPC
     start = time.time()
     mpc_params = {'use_mpc':True, 'num_particles': 6}
     exp = ExperimentModelDynamics(env_name='Pushing2D-v1', num_nets=num_nets, mpc_params=mpc_params)
     exp.model_warmup(num_episodes=num_episodes, num_epochs=num_epochs)
-    exp.plot_loss_rmse('single_random_mpc_')
+    exp.plot_loss_rmse('single_random_mpc_vec')
     avg_reward, avg_success = exp.test(num_test_episode, optimizer='random')
     line = ('RANDOM PushingEnv with MPC: avg_reward: {}, avg_success: {}\n'.format(avg_reward, avg_success))
     print(line)
+    
     f1.write(line)
     f1.write('Time taken: '+str(np.round(time.time() - start, 3))+'\n')
+    """
     f1.close()
-
+    
 def train_pets():
     num_nets = 2
     num_epochs = 500
@@ -316,5 +318,5 @@ if __name__ == "__main__":
         train_pets()
     """
     #test_cem_gt_dynamics(50)
-    #train_single_dynamics(50)
-    train_pets()
+    train_single_dynamics(50)
+    #train_pets()

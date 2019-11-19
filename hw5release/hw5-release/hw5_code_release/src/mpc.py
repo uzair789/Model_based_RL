@@ -63,6 +63,50 @@ class MPC:
         self.goal = []
         self.transitions = []
 
+    def get_costs_per_trajectory(self, input_state, action_seqs ):
+        """ THis function computes the costs for all the tarjectories in one go
+
+            input_state (10)
+            action_seqs (200, 5, 2)
+        """
+        #print('num particles ', self.num_particles)
+        state = np.tile(input_state[0:self.state_dim], (self.pop_size*self.num_particles, 1))
+        actions_p_times = np.tile(action_seqs, (self.num_particles, 1, 1))
+        # THis will create a state column of size [200, 10] since a state is 10 dimensional
+        #print('state and action shapes:' ,state.shape, actions_p_times.shape)
+        costs_per_time_step = np.zeros([state.shape[0], self.plan_horizon])
+        for t in range(self.plan_horizon):
+            #print('*** time step ', t)
+            actions_m = actions_p_times[:, t, :]
+            #input_data = np.concatenate([state, actions_m], axis=1)
+            #print(input_data.shape)
+            next_state = self.predict_next_state_model(state, actions_m)
+            costs = self.obs_cost_fn_(next_state)
+            costs2 = [self.obs_cost_fn(state) for state in next_state]
+            print('error in costs', np.linalg.norm(costs2-costs), t)
+            state = next_state
+            #print(costs)
+            #print(costs.shape)        
+            #print('next states', next_state.shape)        
+            costs_per_time_step[:, t] = costs
+
+
+        # sum across time steps to compute the total cost of each trajectory
+        costs_per_trajectory = np.sum(costs_per_time_step, axis=1)
+        #print(costs_per_trajectory)
+        #print(costs_per_trajectory.shape, '----000')
+
+        #averaging the costs across num particles
+        costs_across_p = costs_per_trajectory.reshape(self.num_particles, -1)
+        #print(costs_across_p)
+        #print(costs_across_p.shape)
+        costs_avgd_across_p = np.mean(costs_across_p, axis=0)
+        #print(costs_avgd_across_p) 
+        #print(costs_avgd_across_p.shape)
+        #exit()
+
+        return costs_avgd_across_p
+
     def cem_optimizer(self, start_state):
         """This functions performs the CEM rollout and returns the mu.
         """
@@ -70,13 +114,19 @@ class MPC:
         sigma = self.sigma #0.5 * np.identity(self.plan_horizon * self.action_dim)
 
         for i in range(self.max_iters):
+            #print('iters----->>> ', i)
             # We are sampling entire trajectory at once. Hence we request for pop_size number of trajectories
             action_seqs_raw = np.random.multivariate_normal(mu, sigma, (self.pop_size))
-            # the shape of action_seqs will be (self.pop_size (200), T * action_dim (5*8))
-            # so we reshape this into (200, 5, 8)
+            # the shape of action_seqs will be (self.pop_size (200), T * action_dim (5*2))
+            # so we reshape this into (200, 5, 2)
             action_seqs = action_seqs_raw.reshape(self.pop_size, self.plan_horizon, self.action_dim)
             # THis reshape might be expensive. If compute is slow, remove this and select the actions by inexing in steps of 8
 
+            cost_per_trajectory = self.get_costs_per_trajectory(start_state, action_seqs)
+
+            #exit()
+
+            """
             cost_per_trajectory = []
             for m in range(self.pop_size):
                 #print('in cem-----------', i, m)
@@ -87,7 +137,7 @@ class MPC:
                     cost_per_state  = [self.obs_cost_fn(state) for state in states ]
                     cost_per_p.append( np.sum(cost_per_state))
                 cost_per_trajectory.append( np.mean(cost_per_p)) 
-
+            """
             positions = np.argsort(cost_per_trajectory)
             sorted_action_sequences = action_seqs_raw[positions, :] 
             top_elite = sorted_action_sequences[0:self.num_elites, :]
@@ -96,20 +146,22 @@ class MPC:
 
 
     def random_optimizer(self, start_state):
-        """This functions performs the random action sequence and returns the action trajectory.
-        """
+        """'''This functions performs the random action sequence and returns the action trajectory.
+        '''"""
         mu = self.mu #np.zeros([self.plan_horizon, self.action_dim]).reshape(-1)
         sigma = self.sigma #0.5 * np.identity(self.plan_horizon * self.action_dim)
 
-        for i in range(self.max_iters):
-            # We are sampling entire trajectory at once. Hence we request for pop_size number of trajectories
-            action_seqs_raw = np.random.multivariate_normal(mu, sigma, (self.pop_size))
-            #print('actions raw', action_seqs_raw.shape)
-            # the shape of action_seqs will be (self.pop_size (200), T * action_dim (5*8))
-            # so we reshape this into (200, 5, 8)
-            action_seqs = action_seqs_raw.reshape(self.pop_size, self.plan_horizon, self.action_dim)
-            # THis reshape might be expensive. If compute is slow, remove this and select the actions by inexing in steps of 8
+        #for i in range(self.max_iters):
+        # We are sampling entire trajectory at once. Hence we request for pop_size number of trajectories
+        action_seqs_raw = np.random.multivariate_normal(mu, sigma, (self.pop_size))
+        #print('actions raw', action_seqs_raw.shape)
+        # the shape of action_seqs will be (self.pop_size (200), T * action_dim (5*8))
+        # so we reshape this into (200, 5, 8)
+        action_seqs = action_seqs_raw.reshape(self.pop_size, self.plan_horizon, self.action_dim)
+        # THis reshape might be expensive. If compute is slow, remove this and select the actions by inexing in steps of 8
 
+        cost_per_trajectory = self.get_costs_per_trajectory(start_state, action_seqs)
+        '''
             cost_per_trajectory = []
             for m in range(self.pop_size):
                 #print('generating traj with random', m, '/', self.pop_size, 'max_iters = ',i,'/', self.max_iters)
@@ -120,11 +172,11 @@ class MPC:
                     cost_per_state  = [self.obs_cost_fn(state) for state in states ]
                     cost_per_p.append( np.sum(cost_per_state))
                 cost_per_trajectory.append( np.mean(cost_per_p)) 
-
-            position = np.argmin(cost_per_trajectory)
-            best_action_sequence = action_seqs_raw[position, :] 
+        '''
+        position = np.argmin(cost_per_trajectory)
+        best_action_sequence = action_seqs_raw[position, :] 
         return best_action_sequence.reshape(self.plan_horizon, self.action_dim)
-
+    
     def update_actions_mu_sigma(self, elite_actions):
         """This function updates the mean and the std
         """
@@ -162,12 +214,43 @@ class MPC:
         diff_coord = np.abs(box_x / box_y - goal_x / goal_y)
         # the -0.4 is to adjust for the radius of the box and pusher
         return W_PUSHER * np.max(d_box - 0.4, 0) + W_GOAL * d_goal + W_DIFF * diff_coord
+    def obs_cost_fn_(self, state):
+        """ Cost function of the current state """
+        # Weights for different terms
+        W_PUSHER = 1
+        W_GOAL = 2
+        W_DIFF = 5
+
+        pusher_x, pusher_y = state[:, 0], state[:, 1]
+        box_x, box_y = state[:, 2], state[:, 3]
+        goal_x, goal_y = self.goal[0], self.goal[1]
+
+        pusher_box = np.array([box_x - pusher_x, box_y - pusher_y])
+        box_goal = np.array([goal_x - box_x, goal_y - box_y])
+        #d_box = np.sqrt(np.dot(pusher_box, pusher_box))
+        #d_goal = np.sqrt(np.dot(box_goal, box_goal))
+
+        #print(pusher_box.shape, box_goal.shape, '---<>')
+
+        d_box = np.sqrt(np.sum(pusher_box * pusher_box, axis=0))
+        d_goal = np.sqrt(np.sum(box_goal * box_goal, axis=0))
+        diff_coord = np.abs(box_x / box_y - goal_x / goal_y)
+        # the -0.4 is to adjust for the radius of the box and pusher
+        temp = d_box-0.4
+        temp = np.expand_dims(temp, axis=1)
+        temp2 = np.concatenate([temp, np.zeros([state.shape[0], 1])], axis=1 )
+        #print(temp2)
+        #print(d_box.shape, d_goal.shape, diff_coord.shape, temp.shape, temp2.shape)
+        #return W_PUSHER * np.amax(temp2, axis=1) + W_GOAL * d_goal + W_DIFF * diff_coord
+        return W_PUSHER * temp + W_GOAL * d_goal + W_DIFF * diff_coord
 
     def predict_next_state_model(self, state, action):
         """ Given a list of state action pairs, use the learned model to predict the next state"""
-        state = state[0:self.state_dim]
-        input_data = (np.concatenate([state, action]))
-        return self.model.forward(np.array(input_data, ndmin=2))
+        #print('in predict next state')
+        #print(state.shape, action.shape)
+        input_data = (np.concatenate([state, action], axis=1))
+        #print('input data shape', input_data.shape)
+        return self.model.forward(input_data)
 
     def predict_next_state_gt(self, state, action):
         """ Given a list of state action pairs, use the ground truth dynamics to predict the next state"""
@@ -192,7 +275,7 @@ class MPC:
         # trains the model
 
         train_input, train_targets = self.get_train_data()
-        self.model.train(train_input, train_targets) 
+        self.model.train(train_input, train_targets, batch_size=128, epochs=epochs) 
 
     def get_train_data(self):
         """THis function arranges the data into the input training data format
@@ -219,7 +302,7 @@ class MPC:
           t: current timestep
         """
         # regular CEM and no MPC
-        #print('in act')
+        #print('in act', t)
         self.goal = state[8:]
         #print('goal---->', self.goal)
         if not self.use_mpc:
@@ -245,7 +328,9 @@ class MPC:
             
             #print('action selected with MPC')
             self.mu = np.concatenate( (actions[1:, :], np.zeros([1, self.action_dim])), axis = 0).reshape(-1)
-        next_state = self.predict_next_state(state, action)
-        self.transitions.append([state[0:self.state_dim], action, next_state])
+        
+        
+        next_state = self.predict_next_state(state[0:self.state_dim].reshape(1,-1), action.reshape(1,-1))
+        self.transitions.append([state[0:self.state_dim], action, next_state[0:self.state_dim]])
         return action
 

@@ -23,7 +23,6 @@ class PENN:
         :param action_dim: action dimension
         :param learning_rate:
         """
-
         self.sess = tf.Session()
         self.num_nets = num_nets
         self.state_dim = state_dim
@@ -60,6 +59,7 @@ class PENN:
         self.input_placeholders = []
         self.target_placeholders = []
         self.means = [] 
+        self.log_vars = []
         self.losses = []
         self.rmses = []
         self.train_ops  =[]
@@ -76,6 +76,7 @@ class PENN:
             self.input_placeholders.append(I)
             self.target_placeholders.append(y)
             self.means.append(mean)
+            self.log_vars.append(log_var)
             self.losses.append(loss)
             self.rmses.append(rmse)
             self.train_ops.append(train_op)
@@ -138,8 +139,26 @@ class PENN:
         feed_dict = {}
         for n in range(len(self.models)):
             feed_dict[self.input_placeholders[n]] = input_data 
-        mean_values = self.sess.run(self.means, feed_dict=feed_dict)
-        ind = np.random.randint(0, len(mean_values))
+        mean_values, log_vars_values = self.sess.run([self.means, self.log_vars], feed_dict=feed_dict)
+        indxs = [np.random.randint(0, self.num_nets) for i in range(input_data.shape[0])]
+        mean_values = np.array(mean_values)
+        log_vars_values = np.array(log_vars_values)
+        #vars_ np.exp()
+        #selected_means = [mean_values[indxs[i], i, :] for i in range(input_data.shape[0])    ]
+        #selected_log_vars = [log_vars_values[indxs[i], i, :] for i in range(input_data.shape[0])]
+        #vars_ = np.exp(selected_log_vars)
+         
+       
+        #selected_means = np.array(selected_means)
+
+ 
+        #print('----eww', selected_means.shape, vars_.shape)         
+        #selected_states = [ np.random.multivariate_normal(selected_means[i], np.diag(vars_[i])) for i in range(input_data.shape[0]) ]                                                  
+        selected_states = [ np.random.multivariate_normal(mean_values[indxs[i], i, :], np.diag( np.exp(log_vars_values[indxs[i], i, :])  )) for i in range(input_data.shape[0]) ]                                                  
+
+        selected_states = np.array(selected_states)
+        #print('input_means', mean_values.shape)
+        #print('selected_means', selected_means.shape)
         """
         I = tf.placeholder(dtype=tf.float32, shape=[None, input_data.shape[1]])
         model_output = self.model(I)
@@ -147,12 +166,12 @@ class PENN:
         mean = op[0:8]
         #tf.reset_default_graph()
         """
-        return mean_values[ind].squeeze()
+        return selected_states
 
     
 
 
-    def train(self, inputs, targets, batch_size=128, epochs=5):
+    def train(self, inputs, targets, batch_size=128, epochs=1):
         """
         Arguments:
           inputs: state and action inputs.  Assumes that inputs are standardized.

@@ -1,5 +1,5 @@
 import numpy as np
-
+import time
 
 class Agent:
     def __init__(self, env):
@@ -20,7 +20,9 @@ class Agent:
         for t in range(horizon):
             # print('time step: {}/{}'.format(t, horizon))
             #print('time step in Agent', t)
+            s = time.time() 
             actions.append(policy.act(states[t], t))
+            print('time taken to act: ', np.round(time.time()-s,3), 'sec')
             #print('policy acted')
             state, reward, done, info = self.env.step(actions[t])
             #print('step taken')
@@ -32,7 +34,7 @@ class Agent:
                 break
 
         # print("Rollout length: ", len(actions))
-
+        print('Reward--',reward_sum)
         return {
             "obs": np.array(states),
             "ac": np.array(actions),
