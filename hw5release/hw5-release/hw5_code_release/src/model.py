@@ -135,22 +135,23 @@ class PENN:
         #print(targets)
         #print('--- target 0 shape', targets[0], targets[0].shape)
         #print('type---->>>>>>>',type(inputs), type(targets), targets.size, len(targets))
-
+        print("DATASET SAMPLE SIZE = ", inputs.shape[0])
         t = [] 
         count_less_than_8 = 0
         #if len(targets.shape) < 2:
          
-        for i,x in enumerate(targets):
-                #print('inside, target at ',i, x, x.shape)
-                x = x.reshape(1, -1)
-                if len(x.shape) < 2:
-                    #print('len less than 8')
-                    count_less_than_8 += 1 
-                t.append(x)
+        #for i,x in enumerate(targets):
+        #        #print('inside, target at ',i, x, x.shape)
+        #        x = x.reshape(1, -1)
+        #        if len(x.shape) < 2:
+        #            #print('len less than 8')
+        #            count_less_than_8 += 1 
+        #        t.append(x)
+        t = [x.reshape(1,-1) for x in targets]
         t = np.array(t, ndmin=2)
-        print(t.shape, 'before squeeze')
+        #print(t.shape, 'before squeeze')
         t = t.squeeze()
-        print(t.shape, 'after squeeze')
+        #print(t.shape, 'after squeeze')
         #print(t)
         #print('count o fless than 8', count_less_than_8)
         #print('SHAPE OF T', t.shape, t.size)
@@ -197,16 +198,16 @@ class PENN:
                 feed_dict = {}
                 batch_data, batch_targets = self.get_train_data(inputs, targets, batch_size)
                 for n in range(len(self.models)):
-                    print('Epoch: ', e, ' iteration:',i, ' Model: ', n, ' batch_size: ',batch_size)
+                    #print('Epoch: ', e, ' iteration:',i, ' Model: ', n, ' batch_size: ',batch_size)
                     feed_dict[self.input_placeholders[n]] = batch_data
                     feed_dict[self.target_placeholders[n]] = batch_targets
-                print(batch_data.shape, batch_targets.shape, '------>>><><><>???')
-                #_, loss_value, rmse_value = self.sess.run([self.train_ops, self.losses, self.rmses], feed_dict=feed_dict)
-                _, _, _ = self.sess.run([self.train_ops, self.losses, self.rmses], feed_dict=feed_dict)
+                #print(batch_data.shape, batch_targets.shape, '------>>><><><>???')
+                _, loss_value, rmse_value = self.sess.run([self.train_ops, self.losses, self.rmses], feed_dict=feed_dict)
+                #_, _, _ = self.sess.run([self.train_ops, self.losses, self.rmses], feed_dict=feed_dict)
                 #self.loss_collector.append(loss_value)
                 #self.rmse_collector.append(rmse_value)
-                #line = ('Epoch: '+str(e)+' | '+ str(i)+'/'+str(iters_per_epoch)+'---- loss= '+ str(loss_value)+ ' | '+'RMSE= '+str (rmse_value))
-                #print(line)
+                line = ('Epoch: '+str(e)+' | '+ str(i)+'/'+str(iters_per_epoch)+'---- loss= '+ str(loss_value)+ ' | '+'RMSE= '+str (rmse_value))
+                print(line)
             # shuffle the data at the end of each epoch
             #inputs, targets = shuffle_data(inputs, targets) 
 

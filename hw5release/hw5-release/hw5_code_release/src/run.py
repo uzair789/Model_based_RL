@@ -6,6 +6,7 @@ import os.path as osp
 import time
 import argparse
 import time
+import collections
 
 
 from agent import Agent, RandomPolicy
@@ -73,8 +74,10 @@ class ExperimentModelDynamics:
         self.random_policy = MPC(self.env, PLAN_HORIZON, self.model, POPSIZE, NUM_ELITES, MAX_ITERS, **mpc_params,
                                  use_random_optimizer=True)
         self.random_policy_no_mpc = RandomPolicy(len(self.env.action_space.sample()))
-
-
+        self.states_buffer = collections.deque(maxlen=40*100) 
+        self.actions_buffer = collections.deque(maxlen=40*100)
+        self.rewards_buffer = collections.deque(maxlen=40*100)
+        self.buffer_flag = True
 
     def plot_graph(self, data, title, xlabel, ylabel):
         plt.figure(figsize=(12,5))
@@ -133,7 +136,16 @@ class ExperimentModelDynamics:
 
     def train(self, num_train_epochs, num_episodes_per_epoch, evaluation_interval, test_episodes):
         """ Jointly training the model and the policy """
-        f = open('pets_20_test.txt','w')
+        f = open('pets_20_with_'+str(self.buffer_flag)+'.txt','w')
+
+
+        cem_reward = []
+        cem_success = []
+
+        random_reward = []
+        random_success = []
+
+
         for i in range(num_train_epochs):
             start1 = time.time() 
             print("####################################################################")
@@ -152,18 +164,37 @@ class ExperimentModelDynamics:
             line = ("Rewards obtained:" + str( [sample["reward_sum"] for sample in samples]))
             f.write(line+'\n')
 
-            self.cem_policy.train(
-                [sample["obs"] for sample in samples],
-                [sample["ac"] for sample in samples],
-                [sample["rewards"] for sample in samples],
-                epochs=5
-            )
+            self.states_buffer.extend( [sample['obs'] for sample in samples])
+            self.actions_buffer.extend([sample['ac'] for sample in samples])
+            self.rewards_buffer.extend([sample['rewards'] for sample in samples])
+
+            if self.buffer_flag:
+                self.cem_policy.train(
+                     self.states_buffer,
+                     self.actions_buffer,
+                     self.rewards_buffer,
+                    epochs=5
+                )
+
+            else:
+                self.cem_policy.train(
+                    [sample["obs"] for sample in samples],
+                    [sample["ac"] for sample in samples],
+                    [sample["rewards"] for sample in samples],
+                    epochs=5
+                )
             time_for_train = np.round(time.time() - start1,3)
             f.write('Time taken for train part of the epoch: '+str(time_for_train)+'\n')
             print('Time taken for train part of the epoch: '+str(time_for_train))
             if (i + 1) % evaluation_interval == 0:
                 start = time.time()
                 avg_return, avg_success = self.test(test_episodes, optimizer='cem')
+                
+                cem_reward.append(avg_return)
+                cem_success.append(avg_success)
+
+
+
                 time_taken_cem = np.round(time.time() - start, 3) 
                 print('Test success CEM + MPC:', avg_success, 'Time taken: ',time_taken_cem)
                 line = ('Test success CEM + MPC:' + str(avg_success)+' Time taken: '+str(time_taken_cem) )
@@ -171,11 +202,18 @@ class ExperimentModelDynamics:
 
                 start = time.time()
                 avg_return, avg_success = self.test(test_episodes, optimizer='random')
+                
+                random_reward.append(avg_return)
+                random_success.append(avg_success)
+
+
                 time_taken_random = time.time() - start
                 print('Test success Random + MPC:', avg_success, 'Time taken: ', time_taken_random)
                 line = ('Test success Random + MPC:'+str( avg_success)+' TIme taken: '+str(time_taken_random))
                 f.write(line+'\n')
         f.close()
+        self.plot_graph(cem_success, 'cem_success'+str(self.buffer_flag), 'epochs', 'success')
+        self.plot_graph(random_success, 'random_success'+str(self.buffer_flag), 'epochs', 'success')
 
 def test_cem_gt_dynamics(num_episode=10):
     
@@ -251,7 +289,7 @@ def test_cem_gt_dynamics(num_episode=10):
 
 def train_single_dynamics(num_test_episode=50):
     num_nets = 1
-    num_episodes = 10000
+    num_episodes = 1000
     num_epochs = 100
 
 

@@ -222,6 +222,7 @@ class MPC:
           epochs: number of epochs to train for
         """
         #Adding random data to the training data
+        self.transitions = [] # clearing the previous data
         for i in range(len(obs_trajs)):
             states = obs_trajs[i]
             actions = acs_trajs[i]
@@ -289,12 +290,12 @@ class MPC:
             self.mu = np.concatenate( (actions[1:, :], np.zeros([1, self.action_dim])), axis = 0).reshape(-1)
         
         
-        next_state = self.predict_next_state(state[0:self.state_dim].reshape(1,-1), action.reshape(1,-1))
-        next_state = np.array(next_state)
+        #next_state = self.predict_next_state(state[0:self.state_dim].reshape(1,-1), action.reshape(1,-1))
+        #next_state = np.array(next_state)
         #print('---in sct', next_state.shape)
         #if len(next_state.shape) < 2:
         #    print('len less than 2') 
         #    exit()
-        self.transitions.append([state[0:self.state_dim], action, next_state[0:self.state_dim]])
+        #self.transitions.append([state[0:self.state_dim], action, next_state[0:self.state_dim]])
         return action
 
