@@ -204,8 +204,8 @@ class PENN:
                 #print(batch_data.shape, batch_targets.shape, '------>>><><><>???')
                 _, loss_value, rmse_value = self.sess.run([self.train_ops, self.losses, self.rmses], feed_dict=feed_dict)
                 #_, _, _ = self.sess.run([self.train_ops, self.losses, self.rmses], feed_dict=feed_dict)
-                #self.loss_collector.append(loss_value)
-                #self.rmse_collector.append(rmse_value)
+                self.loss_collector.append(loss_value)
+                self.rmse_collector.append(rmse_value)
                 line = ('Epoch: '+str(e)+' | '+ str(i)+'/'+str(iters_per_epoch)+'---- loss= '+ str(loss_value)+ ' | '+'RMSE= '+str (rmse_value))
                 print(line)
             # shuffle the data at the end of each epoch
