@@ -356,6 +356,6 @@ if __name__ == "__main__":
     elif args.train == 'pets':
         train_pets()
     """
-    #test_cem_gt_dynamics(50)
+    test_cem_gt_dynamics(50)
     #train_single_dynamics(50)
-    train_pets()
+    #train_pets()

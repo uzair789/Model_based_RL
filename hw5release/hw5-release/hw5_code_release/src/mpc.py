@@ -38,9 +38,12 @@ class MPC:
 
         if use_gt_dynamics:
             self.predict_next_state = self.predict_next_state_gt
+            self.get_costs_per_trajectory = self.get_costs_per_trajectory_gt
             assert num_particles == 1
         else:
             self.predict_next_state = self.predict_next_state_model
+            self.get_costs_per_trajectory = self.get_costs_per_trajectory_model
+           
 
         # TODO: write your code here
         # Initialize your planner with the relevant arguments.
@@ -63,8 +66,38 @@ class MPC:
         self.goal = []
         self.transitions = []
   
+    def get_costs_per_trajectory_gt(self, input_state, action_seqs ):
+        """ THis function computes the costs for all the tarjectories in one go
 
-    def get_costs_per_trajectory(self, input_state, action_seqs ):
+            input_state (10)
+            action_seqs (200, 5, 2)
+        """
+        state = np.tile(input_state, (self.pop_size*self.num_particles, 1))
+        actions_p_times = np.tile(action_seqs, (self.num_particles, 1, 1))
+        # THis will create a state column of size [200, 10] since a state is 10 dimensional
+        #print('state and action shapes:' ,state.shape, actions_p_times.shape)
+        costs_per_time_step = np.zeros([state.shape[0], self.plan_horizon])
+        indxs = np.random.choice([0], size=(self.pop_size*self.num_particles, self.plan_horizon) , replace=True)
+
+ 
+
+        for t in range(self.plan_horizon):
+            actions_m = actions_p_times[:, t, :]
+            next_state = self.predict_next_state(state, actions_m)
+            costs = np.apply_along_axis(self.obs_cost_fn, 1, next_state)
+            state = next_state
+            costs_per_time_step[:, t] = costs
+
+
+        # sum across time steps to compute the total cost of each trajectory
+        costs_per_trajectory = np.sum(costs_per_time_step, axis=1)
+
+        #averaging the costs across num particles
+        costs_across_p = costs_per_trajectory.reshape(self.num_particles, -1)
+        costs_avgd_across_p = np.mean(costs_across_p, axis=0)
+        return costs_avgd_across_p
+
+    def get_costs_per_trajectory_model(self, input_state, action_seqs ):
         """ THis function computes the costs for all the tarjectories in one go
 
             input_state (10)
@@ -76,9 +109,12 @@ class MPC:
         #print('state and action shapes:' ,state.shape, actions_p_times.shape)
         costs_per_time_step = np.zeros([state.shape[0], self.plan_horizon])
         indxs = np.random.choice([0, self.num_nets-1], size=(self.pop_size*self.num_particles, self.plan_horizon) , replace=True)
+
+ 
+
         for t in range(self.plan_horizon):
             actions_m = actions_p_times[:, t, :]
-            next_state = self.predict_next_state_model(state, actions_m)
+            next_state = self.predict_next_state(state, actions_m)
             costs = np.apply_along_axis(self.obs_cost_fn, 1, next_state)
             state = next_state
             costs_per_time_step[:, t] = costs
@@ -208,9 +244,14 @@ class MPC:
         #print('input data shape', input_data.shape)
         return self.model.forward(input_data)
 
-    def predict_next_state_gt(self, state, action):
+    def predict_next_state_gt(self, states, actions):
         """ Given a list of state action pairs, use the ground truth dynamics to predict the next state"""
-        return self.env.get_nxt_state(state, action)
+        all_next_states = []
+        for i in range(len(actions)):
+            next_state = self.env.get_nxt_state(states[i], actions[i])
+            all_next_states.append(next_state)
+
+        return np.array(all_next_states, ndmin=2)
 
     def train(self, obs_trajs, acs_trajs, rews_trajs, epochs=5):
         """
